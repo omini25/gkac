@@ -1,10 +1,10 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY backend/package.json backend/package-lock.json* ./
 RUN npm ci
-COPY tsconfig.json ./
-COPY src/ ./src/
-COPY sql/ ./sql/
+COPY backend/tsconfig.json ./
+COPY backend/src/ ./src/
+COPY backend/sql/ ./sql/
 RUN npm run build
 
 FROM node:20-alpine AS runner
