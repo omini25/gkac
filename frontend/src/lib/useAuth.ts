@@ -41,7 +41,38 @@ export function useAuth() {
     error: null,
   });
 
-  // Restore session from localStorage on mount
+  const refreshUser = useCallback(async () => {
+    const token = localStorage.getItem("gkac_token");
+    if (!token) return;
+
+    const res = await api.getMe();
+    if (res.error) {
+      // Token might be expired — clear session
+      localStorage.removeItem("gkac_token");
+      localStorage.removeItem("gkac_user");
+      setState({ user: null, token: null, loading: false, error: null });
+      return;
+    }
+    if (res.data) {
+      const user: AuthUser = {
+        id: res.data.user.id,
+        firstName: res.data.user.firstName,
+        lastName: res.data.user.lastName,
+        email: res.data.user.email,
+        phone: res.data.user.phone,
+        membershipCategory: res.data.user.membershipCategory,
+        membershipCode: res.data.user.membershipCode,
+        applicationStatus: res.data.user.applicationStatus,
+        isVerified: res.data.user.isVerified,
+        isAdmin: res.data.user.isAdmin,
+        membershipExpiresAt: res.data.user.membershipExpiresAt,
+      };
+      localStorage.setItem("gkac_user", JSON.stringify(user));
+      setState((prev) => ({ ...prev, user, token, loading: false }));
+    }
+  }, []);
+
+  // Restore session from localStorage on mount, then refresh from server
   useEffect(() => {
     const token = localStorage.getItem("gkac_token");
     const stored = localStorage.getItem("gkac_user");
@@ -49,6 +80,8 @@ export function useAuth() {
       try {
         const user = JSON.parse(stored) as AuthUser;
         setState({ user, token, loading: false, error: null });
+        // Fetch fresh data from server in the background
+        refreshUser();
       } catch {
         // Stored data corrupted — clear it
         localStorage.removeItem("gkac_token");
@@ -58,7 +91,7 @@ export function useAuth() {
     } else {
       setState((prev) => ({ ...prev, loading: false }));
     }
-  }, []);
+  }, [refreshUser]);
 
   const login = useCallback(async (email: string, password: string) => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
@@ -95,7 +128,7 @@ export function useAuth() {
     setState({ user: null, token: null, loading: false, error: null });
   }, []);
 
-  return { ...state, login, logout };
+  return { ...state, login, logout, refreshUser };
 }
 
 /** Get the user's initials (e.g. "AJ" for Adebayo Johnson) */

@@ -315,3 +315,54 @@ authRouter.post("/auth/reset-password", async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Internal server error." });
   }
 });
+
+// ─── GET /api/auth/me — Get current authenticated user ────────────────────
+authRouter.get("/auth/me", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Authentication required." });
+    }
+
+    const token = authHeader.slice(7);
+    let decoded: { userId: string; email: string };
+    try {
+      decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string };
+    } catch {
+      return res.status(401).json({ error: "Invalid or expired token." });
+    }
+
+    const db = getDbPool();
+    const result = await db.query(
+      `SELECT id, first_name, last_name, email, phone,
+              membership_category_name, membership_code, application_status,
+              is_verified, is_admin, membership_expires_at
+       FROM users WHERE id = $1`,
+      [decoded.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    const u = result.rows[0];
+    return res.json({
+      user: {
+        id: u.id,
+        firstName: u.first_name,
+        lastName: u.last_name,
+        email: u.email,
+        phone: u.phone,
+        membershipCategory: u.membership_category_name,
+        membershipCode: u.membership_code,
+        applicationStatus: u.application_status,
+        isVerified: u.is_verified,
+        isAdmin: u.is_admin,
+        membershipExpiresAt: u.membership_expires_at,
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching current user:", err);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+});

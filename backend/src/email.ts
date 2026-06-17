@@ -91,12 +91,12 @@ export const EmailTemplates = {
     return {
       subject: "Welcome to GKAC – Application Received",
       htmlBody: `<p>Dear ${name},</p>
-<p>Thank you for applying to join the <strong>Guild of Kwande and Allied Crafts (GKAC)</strong>. Your application has been received and is being processed.</p>
+<p>Thank you for applying to join the <strong>Global Kegite Archaverians Club (GKAC)</strong>. Your application has been received and is being processed.</p>
 <p>Please proceed with your membership payment. Once your payment is verified, your application will be reviewed for approval.</p>
 <p>Best regards,<br/>GKAC Secretariat</p>`,
       textBody: `Dear ${name},
 
-Thank you for applying to join the Guild of Kwande and Allied Crafts (GKAC). Your application has been received and is being processed.
+Thank you for applying to join the Global Kegite Archaverians Club (GKAC). Your application has been received and is being processed.
 
 Please proceed with your membership payment. Once your payment is verified, your application will be reviewed for approval.
 
@@ -109,13 +109,13 @@ GKAC Secretariat`,
     return {
       subject: "Congratulations! Your GKAC Membership is Approved",
       htmlBody: `<p>Dear ${name},</p>
-<p>Congratulations! Your membership application to the <strong>Guild of Kwande and Allied Crafts (GKAC)</strong> has been approved.</p>
+<p>Congratulations! Your membership application to the <strong>Global Kegite Archaverians Club (GKAC)</strong> has been approved.</p>
 <p>Your membership number is: <strong>${membershipCode}</strong></p>
 <p>Welcome to the guild! You can now log in to access member resources, events, and more.</p>
 <p>Best regards,<br/>GKAC Secretariat</p>`,
       textBody: `Dear ${name},
 
-Congratulations! Your membership application to the Guild of Kwande and Allied Crafts (GKAC) has been approved.
+Congratulations! Your membership application to the Global Kegite Archaverians Club (GKAC) has been approved.
 
 Your membership number is: ${membershipCode}
 
@@ -130,13 +130,13 @@ GKAC Secretariat`,
     return {
       subject: "Update on Your GKAC Membership Application",
       htmlBody: `<p>Dear ${name},</p>
-<p>After careful review, we regret to inform you that your membership application to the <strong>Guild of Kwande and Allied Crafts (GKAC)</strong> has not been approved at this time.</p>
+<p>After careful review, we regret to inform you that your membership application to the <strong>Global Kegite Archaverians Club (GKAC)</strong> has not been approved at this time.</p>
 <p><strong>Reason:</strong> ${reason}</p>
 <p>If you believe this decision was made in error, please contact us.</p>
 <p>Best regards,<br/>GKAC Secretariat</p>`,
       textBody: `Dear ${name},
 
-After careful review, we regret to inform you that your membership application to the Guild of Kwande and Allied Crafts (GKAC) has not been approved at this time.
+After careful review, we regret to inform you that your membership application to the Global Kegite Archaverians Club (GKAC) has not been approved at this time.
 
 Reason: ${reason}
 

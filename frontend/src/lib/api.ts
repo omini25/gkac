@@ -314,6 +314,9 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  getMe: () =>
+    request<{ user: LoginResult["user"] }>("/auth/me"),
+
   verifyMember: (membershipCode: string) =>
     request<{ member: { name: string; category: string; membershipCode: string; status: "active" | "expired"; expiresAt: string | null } }>(
       `/auth/verify/${encodeURIComponent(membershipCode)}`

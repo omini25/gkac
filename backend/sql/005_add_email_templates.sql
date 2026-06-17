@@ -19,7 +19,7 @@ CREATE TRIGGER email_templates_updated_at
 
 -- Seed default templates
 INSERT INTO email_templates (name, subject, body, variables) VALUES
-  ('Welcome Email', 'Welcome to GKAC', 'Dear {{name}},\n\nWelcome to the Guild of Kwande and Allied Crafts (GKAC). Your membership application has been received and is being processed.\n\nBest regards,\nGKAC Secretariat', ARRAY['name']),
+  ('Welcome Email', 'Welcome to GKAC', 'Dear {{name}},\n\nWelcome to the Global Kegite Archaverians Club (GKAC). Your membership application has been received and is being processed.\n\nBest regards,\nGKAC Secretariat', ARRAY['name']),
   ('Renewal Reminder', 'Your membership is due for renewal', 'Dear {{name}},\n\nYour GKAC membership ({{membership_code}}) is due for renewal. Please log in to renew your membership.\n\nBest regards,\nGKAC Secretariat', ARRAY['name', 'membership_code']),
   ('Application Approved', 'Your membership application has been approved', 'Dear {{name}},\n\nCongratulations! Your GKAC membership application has been approved. Your membership number is {{membership_code}}.\n\nBest regards,\nGKAC Secretariat', ARRAY['name', 'membership_code']),
   ('Password Reset', 'Reset your password', 'Dear {{name}},\n\nClick the link below to reset your password:\n{{reset_link}}\n\nThis link expires in 1 hour.\n\nBest regards,\nGKAC Secretariat', ARRAY['name', 'reset_link']),
