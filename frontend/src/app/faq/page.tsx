@@ -31,7 +31,7 @@ export default function FaqPage() {
           <p>Quick answers to common questions about membership, verification, and GKAC.</p>
         </div>
         {loading ? (
-          <p style={{ textAlign: "center", color: "var(--muted)" }}>Loading…</p>
+          <p style={{ textAlign: "center", color: "var(--muted)", padding: "40px 0" }}><span className="loader-dot" /></p>
         ) : (
           <>
             <div className="faq-categories">

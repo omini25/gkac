@@ -1,7 +1,35 @@
 import { Router, Request, Response } from "express";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import crypto from "crypto";
 import { getDbPool } from "../db";
 
 export const contentRouter = Router();
+
+// ── Multer setup for content image uploads ─────────────────────────────────
+const UPLOAD_DIR = path.join(__dirname, "..", "..", "uploads");
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+const contentUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname);
+      const name = `content-${crypto.randomBytes(12).toString("hex")}${ext}`;
+      cb(null, name);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      "image/jpeg", "image/png", "image/gif", "image/webp",
+      "application/pdf",
+    ];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    cb(new Error("Only images (JPEG, PNG, GIF, WebP) and PDFs are allowed."));
+  },
+});
 
 type TableInfo = {
   table: string;
@@ -17,6 +45,18 @@ function ct(tab: string): TableInfo {
   };
   return map[tab] || { table: "", idType: "" };
 }
+
+// ─── POST /api/content/upload ──────────────────────────────────────────────
+contentRouter.post("/content/upload", contentUpload.single("file"), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded." });
+    const url = `/uploads/${req.file.filename}`;
+    return res.status(201).json({ url });
+  } catch (err) {
+    console.error("Content upload error:", err);
+    return res.status(500).json({ error: "Failed to upload file." });
+  }
+});
 
 // ─── GET /api/content/:type ────────────────────────────────────────────────
 contentRouter.get("/content/:type", async (req: Request, res: Response) => {
@@ -68,11 +108,11 @@ contentRouter.post("/content/:type", async (req: Request, res: Response) => {
       }
       case "events": {
         result = await db.query(
-          `INSERT INTO content_events (title, description, location, event_date, event_time, badge_label, badge_class, max_attendees, status, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+          `INSERT INTO content_events (title, description, location, event_date, event_time, badge_label, badge_class, max_attendees, status, image_url, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
           [body.title, body.description || null, body.location || null, body.eventDate,
            body.eventTime || null, body.badgeLabel || null, body.badgeClass || null,
-           body.maxAttendees || null, body.status || "open", body.createdBy || null]
+           body.maxAttendees || null, body.status || "open", body.image_url || null, body.createdBy || null]
         );
         break;
       }
@@ -103,6 +143,25 @@ contentRouter.post("/content/:type", async (req: Request, res: Response) => {
   }
 });
 
+// ─── GET /api/content/:type/:id ────────────────────────────────────────────
+contentRouter.get("/content/:type/:id", async (req: Request, res: Response) => {
+  const t = ct(req.params.type);
+  if (!t.table) return res.status(400).json({ error: "Invalid content type." });
+
+  try {
+    const db = getDbPool();
+    const result = await db.query(
+      `SELECT * FROM ${t.table} WHERE id = $1`,
+      [req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "Not found." });
+    return res.json({ item: result.rows[0] });
+  } catch (err) {
+    console.error(`Error fetching ${req.params.type}/${req.params.id}:`, err);
+    return res.status(500).json({ error: "Failed to fetch content." });
+  }
+});
+
 // ─── PUT /api/content/:type/:id ────────────────────────────────────────────
 contentRouter.put("/content/:type/:id", async (req: Request, res: Response) => {
   const t = ct(req.params.type);
@@ -127,11 +186,12 @@ contentRouter.put("/content/:type/:id", async (req: Request, res: Response) => {
       case "events": {
         result = await db.query(
           `UPDATE content_events SET title=$1, description=$2, location=$3, event_date=$4,
-           event_time=$5, badge_label=$6, badge_class=$7, max_attendees=$8, status=$9
-           WHERE id=$10 RETURNING *`,
+           event_time=$5, badge_label=$6, badge_class=$7, max_attendees=$8, status=$9,
+           image_url=$10
+           WHERE id=$11 RETURNING *`,
           [body.title, body.description || null, body.location || null, body.eventDate,
            body.eventTime || null, body.badgeLabel || null, body.badgeClass || null,
-           body.maxAttendees || null, body.status || "open", id]
+           body.maxAttendees || null, body.status || "open", body.image_url || null, id]
         );
         break;
       }

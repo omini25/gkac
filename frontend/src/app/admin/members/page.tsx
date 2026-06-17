@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 
 interface Member {
@@ -26,6 +26,16 @@ interface Member {
   createdAt: string;
 }
 
+interface PaymentRecord {
+  id: string;
+  amount_kobo: number;
+  reference: string;
+  status: string;
+  payment_type: string;
+  paid_at: string | null;
+  created_at: string;
+}
+
 function statusBadge(status: string) {
   const cls =
     status === "Active"
@@ -48,8 +58,13 @@ export default function AdminMembersPage() {
   const [filterCat, setFilterCat] = useState("all");
   const [toast, setToast] = useState({ msg: "", type: "" });
 
+  // Selection for CSV export
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   // Panel (View)
   const [panel, setPanel] = useState<Member | null>(null);
+  const [panelPayments, setPanelPayments] = useState<PaymentRecord[]>([]);
+  const [panelPaymentsLoading, setPanelPaymentsLoading] = useState(false);
 
   // Approve modal
   const [showApprove, setShowApprove] = useState(false);
@@ -69,6 +84,14 @@ export default function AdminMembersPage() {
   const [editTarget, setEditTarget] = useState<Member | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState(false);
+
+  // Add Member modal
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState<Record<string, string>>({
+    firstName: "", lastName: "", email: "", phone: "", password: "",
+    gender: "", stateOfOrigin: "", lga: "", category: "Full Member",
+  });
+  const [adding, setAdding] = useState(false);
 
   // Suspend modal
   const [showSuspend, setShowSuspend] = useState(false);
@@ -98,6 +121,101 @@ export default function AdminMembersPage() {
       setMembers(res.data.members);
     }
     setLoading(false);
+  }
+
+  // ─── Open detail panel with real payment history ─────────────────────────
+  function openPanel(m: Member) {
+    setPanel(m);
+    setPanelPayments([]);
+    setPanelPaymentsLoading(true);
+    api.getMemberPayments(m.id).then((res) => {
+      if (res.data) setPanelPayments(res.data.payments);
+      setPanelPaymentsLoading(false);
+    }).catch(() => setPanelPaymentsLoading(false));
+  }
+
+  // ─── Checkbox selection ─────────────────────────────────────────────────
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((m) => m.id)));
+    }
+  }
+
+  // ─── CSV Export ─────────────────────────────────────────────────────────
+  function exportCSV(exportMembers: Member[]) {
+    if (exportMembers.length === 0) {
+      showToast("No members selected for export.", "error");
+      return;
+    }
+    const headers = ["Name","Email","Phone","Membership No","Category","Chapter","Status","Expiry","Gender","State","LGA","Address","Joined"];
+    const rows = exportMembers.map((m) => [
+      m.name, m.email, m.phone, m.mno, m.category, m.lga || "—", m.status,
+      m.expiry ? new Date(m.expiry).toLocaleDateString("en-GB") : "—",
+      m.gender || "—", m.stateOfOrigin || "—", m.lga || "—",
+      (m.residentialAddress || "—").replace(/,/g, " "),
+      m.createdAt ? new Date(m.createdAt).toLocaleDateString("en-GB") : "—",
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `gkac-members-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${exportMembers.length} member(s).`, "success");
+  }
+
+  function handleExportSelected() {
+    const selected = filtered.filter((m) => selectedIds.has(m.id));
+    exportCSV(selected);
+  }
+
+  function handleExportAll() {
+    exportCSV(filtered);
+  }
+
+  // ─── Add Member ─────────────────────────────────────────────────────────
+  function openAdd() {
+    setAddForm({ firstName: "", lastName: "", email: "", phone: "", password: "", gender: "", stateOfOrigin: "", lga: "", category: "Full Member" });
+    setShowAdd(true);
+  }
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!addForm.firstName || !addForm.lastName || !addForm.email || !addForm.password) {
+      showToast("First name, last name, email, and password are required.", "error");
+      return;
+    }
+    setAdding(true);
+    const res = await api.createMember({
+      firstName: addForm.firstName,
+      lastName: addForm.lastName,
+      email: addForm.email,
+      phone: addForm.phone,
+      password: addForm.password,
+      gender: addForm.gender,
+      stateOfOrigin: addForm.stateOfOrigin,
+      lga: addForm.lga,
+      categoryName: addForm.category,
+    });
+    setAdding(false);
+    if (res.error) {
+      showToast(res.error, "error");
+    } else {
+      showToast(res.data?.message || "Member created.", "success");
+      setShowAdd(false);
+      loadMembers();
+    }
   }
 
   function updateMemberInList(updated: any) {
@@ -269,10 +387,17 @@ export default function AdminMembersPage() {
         <div className="card-header">
           <h3>Member Management</h3>
           <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn btn-accent btn-sm" onClick={() => showToast("Exporting member list…", "success")}>
-              Export CSV
-            </button>
-            <button className="btn btn-outline btn-sm">+ Add Member</button>
+            <div style={{ position: "relative", display: "inline-flex" }}>
+              <button className="btn btn-accent btn-sm" onClick={handleExportSelected} disabled={selectedIds.size === 0}
+                title="Export selected members">
+                Export Selected{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
+              </button>
+              <button className="btn btn-outline btn-sm" onClick={handleExportAll} style={{ marginLeft: 4 }}
+                title="Export all filtered members">
+                Export All
+              </button>
+            </div>
+            <button className="btn btn-outline btn-sm" onClick={openAdd}>+ Add Member</button>
           </div>
         </div>
 
@@ -305,6 +430,10 @@ export default function AdminMembersPage() {
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{ width: 40 }}>
+                  <input type="checkbox" checked={selectedIds.size === filtered.length && filtered.length > 0}
+                    onChange={toggleSelectAll} title="Select all" />
+                </th>
                 <th>Name</th>
                 <th>Membership No</th>
                 <th>Category</th>
@@ -317,19 +446,23 @@ export default function AdminMembersPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: "center", padding: 24, color: "var(--muted)" }}>
-                    Loading members…
+                  <td colSpan={8} style={{ textAlign: "center", padding: 24, color: "var(--muted)" }}>
+                    <span className="loader-dot" />
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: "center", padding: 24, color: "var(--muted)" }}>
+                  <td colSpan={8} style={{ textAlign: "center", padding: 24, color: "var(--muted)" }}>
                     No members found.
                   </td>
                 </tr>
               ) : (
                 filtered.map((m, i) => (
                   <tr key={m.id || i}>
+                    <td>
+                      <input type="checkbox" checked={selectedIds.has(m.id)}
+                        onChange={() => toggleSelect(m.id)} />
+                    </td>
                     <td>
                       <strong>{m.name}</strong>
                       <br />
@@ -341,7 +474,7 @@ export default function AdminMembersPage() {
                     <td>{statusBadge(m.status)}</td>
                     <td>{m.expiry ? new Date(m.expiry).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</td>
                     <td className="actions">
-                      <button className="btn btn-ghost btn-xs" onClick={() => setPanel(m)}>
+                      <button className="btn btn-ghost btn-xs" onClick={() => openPanel(m)}>
                         View
                       </button>
                       <button className="btn btn-outline btn-xs" onClick={() => openEdit(m)}>
@@ -407,18 +540,31 @@ export default function AdminMembersPage() {
             </div>
             <hr style={{ borderColor: "var(--border)", marginBottom: 16 }} />
             <h4>Payment History</h4>
-            <table className="data-table" style={{ marginBottom: 16 }}>
-              <thead><tr><th>Date</th><th>Amount</th><th>Status</th></tr></thead>
-              <tbody>
-                <tr><td>12 Jan 2025</td><td>₦35,000</td><td>Confirmed</td></tr>
-                <tr><td>15 Mar 2024</td><td>₦35,000</td><td>Confirmed</td></tr>
-              </tbody>
-            </table>
+            {panelPaymentsLoading ? (
+              <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", padding: 16 }}><span className="loader-dot" /></p>
+            ) : panelPayments.length === 0 ? (
+              <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>No payment records found.</p>
+            ) : (
+              <table className="data-table" style={{ marginBottom: 16 }}>
+                <thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Status</th></tr></thead>
+                <tbody>
+                  {panelPayments.map((p) => (
+                    <tr key={p.id}>
+                      <td style={{ fontSize: 12 }}>{new Date(p.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</td>
+                      <td style={{ fontSize: 12 }}>₦{(p.amount_kobo / 100).toLocaleString()}</td>
+                      <td style={{ fontSize: 12 }}>{p.payment_type}</td>
+                      <td><span className={`badge ${p.status === "confirmed" ? "badge-active" : "badge-pending"}`} style={{ fontSize: 10 }}>{p.status}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
             <h4>Activity Log</h4>
             <ul className="activity-list">
-              <li><span className="activity-dot approval" /><div>Member since 2024</div></li>
-              <li><span className="activity-dot payment" /><div>Last payment: ₦35,000 on 12 Jan 2025</div></li>
-              <li><span className="activity-dot election" /><div>Voted in 2025 Executive Committee elections</div></li>
+              <li><span className="activity-dot approval" /><div>Registered: {panel.createdAt ? new Date(panel.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}</div></li>
+              {panelPayments.length > 0 && (
+                <li><span className="activity-dot payment" /><div>Last payment: ₦{(panelPayments[0].amount_kobo / 100).toLocaleString()} ({panelPayments[0].payment_type})</div></li>
+              )}
             </ul>
           </>
         )}
@@ -566,6 +712,79 @@ export default function AdminMembersPage() {
             >
               {editing ? "Saving…" : "Save Changes"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Add Member Modal ────────────────────────────────────────────── */}
+      {showAdd && (
+        <div className="modal-overlay open" onClick={() => setShowAdd(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
+            <button className="modal-close" onClick={() => setShowAdd(false)}>✕</button>
+            <h3>Add New Member</h3>
+            <form onSubmit={handleAdd}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className="form-group">
+                  <label>First Name *</label>
+                  <input type="text" required value={addForm.firstName}
+                    onChange={(e) => setAddForm({ ...addForm, firstName: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Last Name *</label>
+                  <input type="text" required value={addForm.lastName}
+                    onChange={(e) => setAddForm({ ...addForm, lastName: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Email *</label>
+                  <input type="email" required value={addForm.email}
+                    onChange={(e) => setAddForm({ ...addForm, email: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Phone</label>
+                  <input type="text" value={addForm.phone}
+                    onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Password *</label>
+                  <input type="password" required value={addForm.password}
+                    onChange={(e) => setAddForm({ ...addForm, password: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Category</label>
+                  <select value={addForm.category}
+                    onChange={(e) => setAddForm({ ...addForm, category: e.target.value })}>
+                    <option value="Fellow">Fellow</option>
+                    <option value="Full Member">Full Member</option>
+                    <option value="Associate">Associate</option>
+                    <option value="Graduate">Graduate</option>
+                    <option value="Student">Student</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Gender</label>
+                  <select value={addForm.gender}
+                    onChange={(e) => setAddForm({ ...addForm, gender: e.target.value })}>
+                    <option value="">—</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>State of Origin</label>
+                  <input type="text" value={addForm.stateOfOrigin}
+                    onChange={(e) => setAddForm({ ...addForm, stateOfOrigin: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>LGA / Chapter</label>
+                  <input type="text" value={addForm.lga}
+                    onChange={(e) => setAddForm({ ...addForm, lga: e.target.value })} />
+                </div>
+              </div>
+              <button className="btn btn-accent" style={{ width: "100%", marginTop: 14 }}
+                disabled={adding} type="submit">
+                {adding ? "Creating…" : "Create Member"}
+              </button>
+            </form>
           </div>
         </div>
       )}

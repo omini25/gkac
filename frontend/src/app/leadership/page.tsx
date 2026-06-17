@@ -22,7 +22,7 @@ export default function LeadershipPage() {
           <p>Meet the distinguished leaders serving on the GKAC Executive Committee.</p>
         </div>
         {loading ? (
-          <p style={{ textAlign: "center", color: "var(--muted)" }}>Loading…</p>
+          <p style={{ textAlign: "center", color: "var(--muted)", padding: "40px 0" }}><span className="loader-dot" /></p>
         ) : (
           <div className="grid-3" style={{ marginTop: "var(--space-3)" }}>
             {leaders.map((l) => (

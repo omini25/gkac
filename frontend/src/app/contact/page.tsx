@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 const CONTACT_DETAILS = [
   { icon: "📍", title: "Headquarters", lines: ["Global Kegite Archaverians Club", "Unity House, Main Boulevard", "Lagos, Nigeria"] },
   { icon: "📞", title: "Phone", lines: ["+234 800 000 0000", "+234 800 000 0001"] },
-  { icon: "✉️", title: "Email", lines: ["info@gkacglobal.org", "membership@gkacglobal.org"] },
+  { icon: "✉️", title: "Email", lines: ["info@gkaclub.org", "membership@gkaclub.org"] },
   { icon: "🕐", title: "Office Hours", lines: ["Monday – Friday", "8:00 AM – 5:00 PM (WAT)", "Closed on public holidays"] },
 ];
 

@@ -22,6 +22,7 @@ export default function ElectionsPage() {
 
   // Declaration modal
   const [declareElection, setDeclareElection] = useState<Election | null>(null);
+  const [declarePositions, setDeclarePositions] = useState<ElectionPosition[]>([]);
   const [declarePositionId, setDeclarePositionId] = useState("");
   const [declareStatement, setDeclareStatement] = useState("");
   const [declaring, setDeclaring] = useState(false);
@@ -196,6 +197,12 @@ export default function ElectionsPage() {
                 style={{ marginTop: 12 }}
                 onClick={async () => {
                   setDeclareElection(el);
+                  setDeclarePositionId("");
+                  setDeclareStatement("");
+                  const posRes = await api.getElection(el.id);
+                  if (posRes.data) {
+                    setDeclarePositions(posRes.data.election.positions || []);
+                  }
                   await loadVoteState(el.id);
                 }}
               >
@@ -336,7 +343,7 @@ export default function ElectionsPage() {
                 onChange={(e) => setDeclarePositionId(e.target.value)}
               >
                 <option value="">— Select a position —</option>
-                {ballotPositions.map((pos) => {
+                {declarePositions.map((pos) => {
                   const existing = declaredForPosition(pos.id);
                   return (
                     <option key={pos.id} value={pos.id} disabled={!!existing}>

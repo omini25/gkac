@@ -261,7 +261,7 @@ export default function AdminResourcesPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} style={{ textAlign: "center", padding: 32, color: "var(--muted)" }}>Loading…</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: "center", padding: 32 }}><span className="loader-dot" /></td></tr>
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={7} style={{ textAlign: "center", padding: 32, color: "var(--muted)" }}>No resources found.</td></tr>
               ) : (

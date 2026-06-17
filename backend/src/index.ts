@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import path from "path";
 import cors from "cors";
 import { getDbPool, testDbConnection } from "./db";
 import { getRedisClient, testRedisConnection } from "./redis";
@@ -33,6 +34,9 @@ async function main() {
     },
   }));
   app.use(express.json());
+
+  // Serve uploaded files
+  app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
   // Initialize connections
   const db = getDbPool();

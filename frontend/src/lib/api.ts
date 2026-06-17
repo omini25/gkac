@@ -90,6 +90,8 @@ export interface LoginResult {
     isVerified: boolean;
     isAdmin: boolean;
     membershipExpiresAt: string;
+    passportPhotoUrl: string | null;
+    createdAt: string | null;
   };
   token: string;
 }
@@ -132,6 +134,31 @@ export interface PaymentVerifyResult {
   };
 }
 
+export interface PaymentRecord {
+  id: string;
+  amount_kobo: number;
+  currency: string;
+  reference: string;
+  status: string;
+  payment_type: string;
+  proof_of_payment_url: string | null;
+  paid_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RenewMembershipResult {
+  paymentId: string;
+  reference: string;
+  bankDetails: {
+    bankName: string;
+    accountName: string;
+    accountNumber: string;
+    sortCode: string;
+    referencePrefix: string;
+  };
+}
+
 export interface Resource {
   id: string;
   title: string;
@@ -167,7 +194,8 @@ export interface EventItem {
   id: string; title: string; description: string | null;
   location: string | null; event_date: string; event_time: string | null;
   badge_label: string | null; badge_class: string | null;
-  max_attendees: number | null; status: string; created_at: string;
+  max_attendees: number | null; status: string; image_url: string | null;
+  created_at: string;
 }
 
 export interface LeaderItem {
@@ -338,6 +366,9 @@ export const api = {
   getContent: <T>(type: ContentType, all?: boolean) =>
     request<{ items: T[] }>(`/content/${type}${all ? "?all=true" : ""}`),
 
+  getContentItem: <T>(type: ContentType, id: string) =>
+    request<{ item: T }>(`/content/${type}/${encodeURIComponent(id)}`),
+
   createContent: <T>(type: ContentType, data: Record<string, unknown>) =>
     request<{ item: T }>(`/content/${type}`, {
       method: "POST", body: JSON.stringify(data),
@@ -351,6 +382,13 @@ export const api = {
   deleteContent: (type: ContentType, id: string) =>
     request<{ message: string }>(`/content/${type}/${id}`, {
       method: "DELETE",
+    }),
+
+  uploadContentFile: (formData: FormData) =>
+    request<{ url: string }>("/content/upload", {
+      method: "POST",
+      headers: {},
+      body: formData,
     }),
 
   // Resources
@@ -403,6 +441,37 @@ export const api = {
 
   verifyPayment: (reference: string) =>
     request<PaymentVerifyResult>(`/payments/verify?reference=${encodeURIComponent(reference)}`),
+
+  // ─── Payment History ──────────────────────────────────────────────────────
+  getPaymentHistory: () =>
+    request<{ payments: PaymentRecord[] }>("/payments/history"),
+
+  // ─── Membership Renewal ───────────────────────────────────────────────────
+  renewMembership: (amountKobo: number, email: string) =>
+    request<RenewMembershipResult>("/payments/renew", {
+      method: "POST",
+      body: JSON.stringify({ amountKobo, email }),
+    }),
+
+  // ─── Admin Payments ───────────────────────────────────────────────────────
+  getAdminPayments: () =>
+    request<{ payments: any[] }>("/payments/admin/all"),
+
+  getAdminPaymentStats: () =>
+    request<{ stats: { totalCollected: number; renewalsDue: number; pendingTotal: number; pendingCount: number; collectionRate: number } }>("/payments/admin/stats"),
+
+  confirmPayment: (id: string) =>
+    request<{ message: string }>(`/payments/admin/${id}/confirm`, {
+      method: "PUT",
+    }),
+
+  rejectPayment: (id: string) =>
+    request<{ message: string }>(`/payments/admin/${id}/reject`, {
+      method: "PUT",
+    }),
+
+  getRenewalsDue: () =>
+    request<{ members: any[] }>("/payments/admin/renewals-due"),
 
   // ─── Contact ───────────────────────────────────────────────────────────────
   submitContact: (data: { name: string; email: string; subject: string; message: string }) =>
@@ -535,6 +604,14 @@ export const api = {
     request<{ message: string }>(`/admin/members/${id}/remind`, {
       method: "POST",
     }),
+
+  createMember: (data: Record<string, unknown>) =>
+    request<{ message: string; member: any }>("/admin/members", {
+      method: "POST", body: JSON.stringify(data),
+    }),
+
+  getMemberPayments: (id: string) =>
+    request<{ payments: any[] }>(`/admin/members/${id}/payments`),
 
   // ─── Admin - Reports ───────────────────────────────────────────────────────
   getReports: () =>

@@ -36,7 +36,7 @@ export default function Footer() {
             <h4>Contact</h4>
             <ul>
               <li><Link href="/contact">Contact Us</Link></li>
-              <li><a href="mailto:info@gkacglobal.org">info@gkacglobal.org</a></li>
+              <li><a href="mailto:info@gkaclub.org">info@gkaclub.org</a></li>
               <li><a href="tel:+2348000000000">+234 800 000 0000</a></li>
             </ul>
           </div>

@@ -1,20 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/useAuth";
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<"info" | "settings">("info");
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+  });
+  const [saved, setSaved] = useState(false);
+
+  // Populate editable fields once user loads
+  useEffect(() => {
+    if (user) {
+      setForm({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.email || "",
+        phone: user.phone || "",
+      });
+    }
+  }, [user]);
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    alert("Profile updated successfully.");
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
   }
 
-  const initials = user ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}` : "??";
-  const fullName = user ? `${user.firstName} ${user.lastName}` : "—";
-  const maskedNIN = user?.membershipCode ? `${user.membershipCode.slice(0, 4)}••••` : "—";
+  if (loading || !user) {
+    return (
+      <div className="card" style={{ textAlign: "center", padding: "var(--space-5)" }}>
+        <p style={{ color: "var(--muted)" }}>Loading profile…</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: 700 }}>
@@ -36,21 +60,37 @@ export default function ProfilePage() {
             <div className="form-row">
               <div className="form-group">
                 <label>First Name</label>
-                <input type="text" defaultValue={user?.firstName || ""} />
+                <input
+                  type="text"
+                  value={form.firstName}
+                  onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))}
+                />
               </div>
               <div className="form-group">
                 <label>Last Name</label>
-                <input type="text" defaultValue={user?.lastName || ""} />
+                <input
+                  type="text"
+                  value={form.lastName}
+                  onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))}
+                />
               </div>
             </div>
             <div className="form-row">
               <div className="form-group">
                 <label>Email Address</label>
-                <input type="email" defaultValue={user?.email || ""} />
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                />
               </div>
               <div className="form-group">
                 <label>Phone Number</label>
-                <input type="tel" defaultValue={user?.phone || ""} />
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                />
               </div>
             </div>
             <hr style={{ borderColor: "var(--border)", margin: "20px 0" }} />
@@ -63,25 +103,29 @@ export default function ProfilePage() {
             <div className="form-row">
               <div className="form-group">
                 <label>Membership Number</label>
-                <input type="text" defaultValue={user?.membershipCode || "—"} disabled />
+                <input type="text" value={user.membershipCode || "—"} readOnly disabled />
               </div>
               <div className="form-group">
-                <label>Membership Code</label>
-                <input type="text" defaultValue={maskedNIN} disabled />
+                <label>Membership Category</label>
+                <input type="text" value={user.membershipCategory || "—"} readOnly disabled />
               </div>
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Membership Category</label>
-                <input type="text" defaultValue={user?.membershipCategory || "—"} disabled />
+                <label>Application Status</label>
+                <input type="text" value={user.applicationStatus || "—"} readOnly disabled />
               </div>
               <div className="form-group">
-                <label>Status</label>
-                <input type="text" defaultValue={user?.applicationStatus || "—"} disabled />
+                <label>Expiry Date</label>
+                <input
+                  type="text"
+                  value={user.membershipExpiresAt ? new Date(user.membershipExpiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "—"}
+                  readOnly disabled
+                />
               </div>
             </div>
             <button type="submit" className="btn btn-accent" style={{ marginTop: 12 }}>
-              Save Changes
+              {saved ? "✓ Saved" : "Save Changes"}
             </button>
           </form>
         </div>
@@ -93,7 +137,6 @@ export default function ProfilePage() {
           <h3 style={{ marginBottom: 20 }}>Account Settings</h3>
           <div style={{ marginBottom: 24 }}>
             {[
-              { title: "Two-Factor Authentication", desc: "Add an extra layer of security to your account.", btn: "Enable" },
               { title: "Email Notifications", desc: "Receive announcements, event reminders, and renewal alerts.", toggle: true, checked: true },
               { title: "SMS Alerts", desc: "Get urgent updates via text message.", toggle: true, checked: false },
             ].map((row) => (
@@ -112,39 +155,16 @@ export default function ProfilePage() {
                   <br />
                   <span style={{ fontSize: 13, color: "var(--muted)" }}>{row.desc}</span>
                 </div>
-                {row.toggle !== undefined ? (
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      defaultChecked={row.checked}
-                      style={{ width: 18, height: 18, accentColor: "var(--green)" }}
-                    />{" "}
-                    {row.checked ? "Enabled" : "Disabled"}
-                  </label>
-                ) : (
-                  <button className="btn btn-outline btn-sm" type="button">
-                    {row.btn}
-                  </button>
-                )}
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    defaultChecked={row.checked}
+                    style={{ width: 18, height: 18, accentColor: "var(--green)" }}
+                  />{" "}
+                  {row.checked ? "Enabled" : "Disabled"}
+                </label>
               </div>
             ))}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "16px 0",
-              }}
-            >
-              <div>
-                <strong>Session Management</strong>
-                <br />
-                <span style={{ fontSize: 13, color: "var(--muted)" }}>Active sessions: 2 devices.</span>
-              </div>
-              <button className="btn btn-danger btn-sm" type="button">
-                Sign Out All
-              </button>
-            </div>
           </div>
           <h4 style={{ marginBottom: 12 }}>Change Password</h4>
           <form onSubmit={(e) => { e.preventDefault(); alert("Password updated."); }}>

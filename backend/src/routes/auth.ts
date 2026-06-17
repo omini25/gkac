@@ -183,7 +183,8 @@ authRouter.post("/auth/login", async (req: Request, res: Response) => {
     const result = await db.query(
       `SELECT id, first_name, last_name, email, phone, password_hash,
               membership_category_name, membership_code, application_status,
-              is_verified, is_admin, membership_expires_at
+              is_verified, is_admin, membership_expires_at,
+              passport_photo_url, created_at
        FROM users WHERE email = $1`,
       [email.toLowerCase().trim()]
     );
@@ -214,6 +215,8 @@ authRouter.post("/auth/login", async (req: Request, res: Response) => {
         isVerified: user.is_verified,
         isAdmin: user.is_admin,
         membershipExpiresAt: user.membership_expires_at,
+        passportPhotoUrl: user.passport_photo_url,
+        createdAt: user.created_at,
       },
       token,
     });
@@ -336,7 +339,8 @@ authRouter.get("/auth/me", async (req: Request, res: Response) => {
     const result = await db.query(
       `SELECT id, first_name, last_name, email, phone,
               membership_category_name, membership_code, application_status,
-              is_verified, is_admin, membership_expires_at
+              is_verified, is_admin, membership_expires_at,
+              passport_photo_url, created_at
        FROM users WHERE id = $1`,
       [decoded.userId]
     );
@@ -359,6 +363,8 @@ authRouter.get("/auth/me", async (req: Request, res: Response) => {
         isVerified: u.is_verified,
         isAdmin: u.is_admin,
         membershipExpiresAt: u.membership_expires_at,
+        passportPhotoUrl: u.passport_photo_url,
+        createdAt: u.created_at,
       },
     });
   } catch (err) {

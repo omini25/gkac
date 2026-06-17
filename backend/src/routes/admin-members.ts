@@ -1,8 +1,92 @@
 import { Router, Request, Response } from "express";
+import bcrypt from "bcryptjs";
 import { getDbPool } from "../db";
 import { EmailTemplates, sendTemplatedEmail } from "../email";
 
 export const adminMembersRouter = Router();
+
+// ─── POST /api/admin/members ───────────────────────────────────────────────
+adminMembersRouter.post("/admin/members", async (req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const {
+      firstName, lastName, email, phone, password,
+      gender, stateOfOrigin, lga, residentialAddress,
+      categoryId, categoryName, membershipCode,
+    } = req.body;
+
+    if (!firstName || !lastName || !email || !password) {
+      return res.status(400).json({ error: "First name, last name, email, and password are required." });
+    }
+
+    // Check for duplicate email
+    const existing = await db.query("SELECT id FROM users WHERE email = $1", [email.trim().toLowerCase()]);
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: "A user with this email already exists." });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const result = await db.query(
+      `INSERT INTO users (first_name, last_name, email, phone, password_hash,
+        gender, state_of_origin, lga, residential_address,
+        membership_category_id, membership_category_name,
+        membership_code, application_status, is_verified)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'approved',TRUE)
+       RETURNING id, first_name, last_name, email, phone,
+         membership_category_name, membership_code, application_status,
+         is_suspended, membership_expires_at, created_at`,
+      [
+        firstName.trim(), lastName.trim(), email.trim().toLowerCase(), phone || null,
+        passwordHash, gender || null, stateOfOrigin || null, lga || null,
+        residentialAddress || null, categoryId || null, categoryName || null,
+        membershipCode || null,
+      ]
+    );
+
+    const u = result.rows[0];
+    return res.status(201).json({
+      message: "Member created successfully.",
+      member: {
+        id: u.id,
+        name: `${u.first_name} ${u.last_name}`,
+        firstName: u.first_name,
+        lastName: u.last_name,
+        email: u.email,
+        phone: u.phone,
+        category: u.membership_category_name,
+        mno: u.membership_code || "—",
+        applicationStatus: u.application_status,
+        isSuspended: u.is_suspended,
+        expiry: u.membership_expires_at,
+        status: "Active",
+        createdAt: u.created_at,
+      },
+    });
+  } catch (err) {
+    console.error("Error creating member:", err);
+    return res.status(500).json({ error: "Failed to create member." });
+  }
+});
+
+// ─── GET /api/admin/members/:id/payments ────────────────────────────────────
+adminMembersRouter.get("/admin/members/:id/payments", async (req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const result = await db.query(
+      `SELECT id, amount_kobo, currency, reference, status, payment_type,
+              proof_of_payment_url, paid_at, created_at
+       FROM payments
+       WHERE user_id = $1
+       ORDER BY created_at DESC`,
+      [req.params.id]
+    );
+    return res.json({ payments: result.rows });
+  } catch (err) {
+    console.error("Error fetching member payments:", err);
+    return res.status(500).json({ error: "Failed to fetch payment history." });
+  }
+});
 
 // ─── GET /api/admin/members ───────────────────────────────────────────────
 adminMembersRouter.get("/admin/members", async (_req: Request, res: Response) => {

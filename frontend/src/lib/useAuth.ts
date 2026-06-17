@@ -15,6 +15,8 @@ export interface AuthUser {
   isVerified: boolean;
   isAdmin: boolean;
   membershipExpiresAt: string | null;
+  passportPhotoUrl: string | null;
+  createdAt: string | null;
 }
 
 interface AuthState {
@@ -66,6 +68,8 @@ export function useAuth() {
         isVerified: res.data.user.isVerified,
         isAdmin: res.data.user.isAdmin,
         membershipExpiresAt: res.data.user.membershipExpiresAt,
+        passportPhotoUrl: res.data.user.passportPhotoUrl,
+        createdAt: res.data.user.createdAt,
       };
       localStorage.setItem("gkac_user", JSON.stringify(user));
       setState((prev) => ({ ...prev, user, token, loading: false }));
@@ -113,6 +117,8 @@ export function useAuth() {
         isVerified: res.data.user.isVerified,
         isAdmin: res.data.user.isAdmin,
         membershipExpiresAt: res.data.user.membershipExpiresAt,
+        passportPhotoUrl: res.data.user.passportPhotoUrl,
+        createdAt: res.data.user.createdAt,
       };
       localStorage.setItem("gkac_token", res.data.token);
       localStorage.setItem("gkac_user", JSON.stringify(user));

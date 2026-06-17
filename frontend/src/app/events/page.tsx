@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { api, type EventItem } from "@/lib/api";
 
 export default function EventsPage() {
@@ -35,28 +36,30 @@ export default function EventsPage() {
             events.map((ev) => {
               const fd = fmtDate(ev.event_date);
               return (
-                <div key={ev.id} className="event-card">
-                  <div className="event-date-badge">
-                    <span className="day">{fd.day}</span>
-                    <span className="month">{fd.month}</span>
-                  </div>
-                  <div className="event-info">
-                    <h4>{ev.title}</h4>
-                    <div className="event-meta">
-                      <span>📍 {ev.location || "TBA"}</span>
-                      {ev.event_time && <span>🕐 {ev.event_time}</span>}
+                <Link key={ev.id} href={`/events/${ev.id}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                  <div className="event-card">
+                    <div className="event-date-badge">
+                      <span className="day">{fd.day}</span>
+                      <span className="month">{fd.month}</span>
                     </div>
-                    {ev.description && <p style={{ marginTop: 6 }}>{ev.description}</p>}
-                    {ev.badge_label && (
-                      <span style={{
-                        display: "inline-block", padding: "4px 12px", borderRadius: 999,
-                        fontSize: 12, fontWeight: 600,
-                        background: ev.badge_class ? "oklch(94% 0.04 155 / .25)" : "oklch(90% 0.02 260 / .20)",
-                        color: ev.badge_class ? "var(--success)" : "var(--muted)",
-                      }}>{ev.badge_label}</span>
-                    )}
+                    <div className="event-info">
+                      <h4>{ev.title}</h4>
+                      <div className="event-meta">
+                        <span>📍 {ev.location || "TBA"}</span>
+                        {ev.event_time && <span>🕐 {ev.event_time}</span>}
+                      </div>
+                      {ev.description && <p style={{ marginTop: 6 }}>{ev.description}</p>}
+                      {ev.badge_label && (
+                        <span style={{
+                          display: "inline-block", padding: "4px 12px", borderRadius: 999,
+                          fontSize: 12, fontWeight: 600,
+                          background: ev.badge_class ? "oklch(94% 0.04 155 / .25)" : "oklch(90% 0.02 260 / .20)",
+                          color: ev.badge_class ? "var(--success)" : "var(--muted)",
+                        }}>{ev.badge_label}</span>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </Link>
               );
             })
           )}

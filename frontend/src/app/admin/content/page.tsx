@@ -16,11 +16,26 @@ function NewsModal({ item, onClose, onSaved }: { item: NewsItem | null; onClose:
   const [title, setTitle] = useState(item?.title || "");
   const [body, setBody] = useState(item?.body || "");
   const [status, setStatus] = useState(item?.status || "draft");
+  const [imageUrl, setImageUrl] = useState(item?.image_url || "");
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await api.uploadContentFile(fd);
+      if (res.data) setImageUrl(res.data.url);
+    } catch { /* ignore */ }
+    setUploading(false);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
-    const data = { title, body, status };
+    const data = { title, body, status, image_url: imageUrl || null };
     const res = item
       ? await api.updateContent<NewsItem>("news", item.id, data)
       : await api.createContent<NewsItem>("news", data);
@@ -43,13 +58,27 @@ function NewsModal({ item, onClose, onSaved }: { item: NewsItem | null; onClose:
             <textarea rows={6} required value={body} onChange={(e) => setBody(e.target.value)} />
           </div>
           <div className="form-group">
+            <label>Featured Image</label>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <input type="file" accept="image/*" onChange={handleFileChange} disabled={uploading}
+                style={{ fontSize: 13 }} />
+              {uploading && <span style={{ fontSize: 12, color: "var(--muted)" }}>Uploading…</span>}
+            </div>
+            {imageUrl && (
+              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                <img src={imageUrl} alt="preview" style={{ width: 80, height: 50, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setImageUrl("")} style={{ fontSize: 12, color: "var(--error)" }}>Remove</button>
+              </div>
+            )}
+          </div>
+          <div className="form-group">
             <label>Status</label>
             <select value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="draft">Draft</option>
               <option value="published">Published</option>
             </select>
           </div>
-          <button type="submit" className="btn btn-accent" disabled={saving}>{saving ? "Saving…" : item ? "Save Changes" : "Create Post"}</button>
+          <button type="submit" className="btn btn-accent" disabled={saving || uploading}>{saving ? "Saving…" : item ? "Save Changes" : "Create Post"}</button>
         </form>
       </div>
     </div>
@@ -64,11 +93,26 @@ function EventModal({ item, onClose, onSaved }: { item: EventItem | null; onClos
   const [eventTime, setEventTime] = useState(item?.event_time || "");
   const [badgeLabel, setBadgeLabel] = useState(item?.badge_label || "");
   const [status, setStatus] = useState(item?.status || "open");
+  const [imageUrl, setImageUrl] = useState(item?.image_url || "");
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await api.uploadContentFile(fd);
+      if (res.data) setImageUrl(res.data.url);
+    } catch { /* ignore */ }
+    setUploading(false);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
-    const data = { title, description, location, eventDate, eventTime, badgeLabel, status };
+    const data = { title, description, location, eventDate, eventTime, badgeLabel, status, image_url: imageUrl || null };
     const res = item
       ? await api.updateContent<EventItem>("events", item.id, data)
       : await api.createContent<EventItem>("events", data);
@@ -95,7 +139,21 @@ function EventModal({ item, onClose, onSaved }: { item: EventItem | null; onClos
           <div className="form-group"><label>Status</label><select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="open">Open</option><option value="invitation">Invitation Only</option><option value="cancelled">Cancelled</option><option value="completed">Completed</option>
           </select></div>
-          <button type="submit" className="btn btn-accent" disabled={saving}>{saving ? "Saving…" : item ? "Save Changes" : "Create Event"}</button>
+          <div className="form-group">
+            <label>Event Banner / Poster</label>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <input type="file" accept="image/*" onChange={handleFileChange} disabled={uploading}
+                style={{ fontSize: 13 }} />
+              {uploading && <span style={{ fontSize: 12, color: "var(--muted)" }}>Uploading…</span>}
+            </div>
+            {imageUrl && (
+              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                <img src={imageUrl} alt="preview" style={{ width: 80, height: 50, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setImageUrl("")} style={{ fontSize: 12, color: "var(--error)" }}>Remove</button>
+              </div>
+            )}
+          </div>
+          <button type="submit" className="btn btn-accent" disabled={saving || uploading}>{saving ? "Saving…" : item ? "Save Changes" : "Create Event"}</button>
         </form>
       </div>
     </div>
@@ -108,11 +166,26 @@ function LeaderModal({ item, onClose, onSaved }: { item: LeaderItem | null; onCl
   const [bio, setBio] = useState(item?.bio || "");
   const [termLabel, setTermLabel] = useState(item?.term_label || "");
   const [sortOrder, setSortOrder] = useState(item?.sort_order || 0);
+  const [photoUrl, setPhotoUrl] = useState(item?.photo_url || "");
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await api.uploadContentFile(fd);
+      if (res.data) setPhotoUrl(res.data.url);
+    } catch { /* ignore */ }
+    setUploading(false);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
-    const data = { name, role, bio, termLabel, sortOrder, isActive: true };
+    const data = { name, role, bio, termLabel, sortOrder, isActive: true, photoUrl: photoUrl || null };
     const res = item
       ? await api.updateContent<LeaderItem>("leadership", item.id, data)
       : await api.createContent<LeaderItem>("leadership", data);
@@ -135,7 +208,21 @@ function LeaderModal({ item, onClose, onSaved }: { item: LeaderItem | null; onCl
             <div className="form-group"><label>Term Label</label><input type="text" value={termLabel} onChange={(e) => setTermLabel(e.target.value)} placeholder="e.g. 2023–2025" /></div>
             <div className="form-group"><label>Display Order</label><input type="number" value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} /></div>
           </div>
-          <button type="submit" className="btn btn-accent" disabled={saving}>{saving ? "Saving…" : item ? "Save Changes" : "Add Official"}</button>
+          <div className="form-group">
+            <label>Photo</label>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <input type="file" accept="image/*" onChange={handleFileChange} disabled={uploading}
+                style={{ fontSize: 13 }} />
+              {uploading && <span style={{ fontSize: 12, color: "var(--muted)" }}>Uploading…</span>}
+            </div>
+            {photoUrl && (
+              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                <img src={photoUrl} alt="preview" style={{ width: 60, height: 60, objectFit: "cover", borderRadius: "50%", border: "1px solid var(--border)" }} />
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPhotoUrl("")} style={{ fontSize: 12, color: "var(--error)" }}>Remove</button>
+              </div>
+            )}
+          </div>
+          <button type="submit" className="btn btn-accent" disabled={saving || uploading}>{saving ? "Saving…" : item ? "Save Changes" : "Add Official"}</button>
         </form>
       </div>
     </div>
@@ -207,6 +294,90 @@ function ConfirmDelete({ type, item, onClose, onSaved }: { type: string; item: a
   );
 }
 
+const API_BASE_FOR_PREVIEW = process.env.NEXT_PUBLIC_API_URL
+  ? process.env.NEXT_PUBLIC_API_URL.replace("/api", "")
+  : "http://localhost:3001";
+
+function PreviewModal({ type, item, onClose }: { type: string; item: any; onClose: () => void }) {
+  function fmt(d: string) {
+    return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  }
+  const imgSrc = (url: string | null) => {
+    if (!url) return null;
+    if (url.startsWith("http")) return url;
+    return `${API_BASE_FOR_PREVIEW}${url}`;
+  };
+
+  return (
+    <div className="modal-overlay open" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" style={{ maxWidth: 600 }}>
+        <button className="modal-close" onClick={onClose}>✕</button>
+        <h3 style={{ marginBottom: 16 }}>Preview</h3>
+
+        {type === "news" && (
+          <div>
+            {item.image_url && (
+              <img src={imgSrc(item.image_url)} alt=""
+                style={{ width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 10, marginBottom: 16, border: "1px solid var(--border)" }} />
+            )}
+            <h2 style={{ fontSize: 22, marginBottom: 4 }}>{item.title}</h2>
+            <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 12 }}>
+              {item.published_at ? `Published ${fmt(item.published_at)}` : `Created ${fmt(item.created_at)}`}
+              {" · "}<span className={`badge ${item.status === "published" ? "badge-active" : "badge-pending"}`}>{item.status}</span>
+            </p>
+            <div style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "var(--fg)" }}>{item.body}</div>
+          </div>
+        )}
+
+        {type === "events" && (
+          <div>
+            {item.image_url && (
+              <img src={imgSrc(item.image_url)} alt=""
+                style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 10, marginBottom: 16, border: "1px solid var(--border)" }} />
+            )}
+            <h2 style={{ fontSize: 22, marginBottom: 4 }}>{item.title}</h2>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>
+              📅 {fmt(item.event_date)}{item.event_time ? ` · 🕐 ${item.event_time}` : ""}
+            </p>
+            {item.location && <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>📍 {item.location}</p>}
+            <span className={`badge ${item.status === "open" ? "badge-active" : "badge-pending"}`}>{item.status}</span>
+            {item.description && <div style={{ fontSize: 14, lineHeight: 1.7, marginTop: 12, color: "var(--fg)" }}>{item.description}</div>}
+          </div>
+        )}
+
+        {type === "leadership" && (
+          <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
+            {item.photo_url ? (
+              <img src={imgSrc(item.photo_url)} alt=""
+                style={{ width: 90, height: 90, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "3px solid var(--green-light)" }} />
+            ) : (
+              <div style={{ width: 90, height: 90, borderRadius: "50%", background: "var(--green-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 700, color: "var(--green-dark)", flexShrink: 0 }}>
+                {item.name?.charAt(0) || "?"}
+              </div>
+            )}
+            <div>
+              <h2 style={{ fontSize: 20, marginBottom: 2 }}>{item.name}</h2>
+              <p style={{ fontSize: 14, fontWeight: 600, color: "var(--green)", marginBottom: 4 }}>{item.role}</p>
+              {item.term_label && <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>Term: {item.term_label}</p>}
+              {item.bio && <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--fg)" }}>{item.bio}</div>}
+            </div>
+          </div>
+        )}
+
+        {type === "faq" && (
+          <div>
+            <span className="badge badge-active" style={{ marginBottom: 10 }}>{item.category}</span>
+            <h2 style={{ fontSize: 18, marginBottom: 8, marginTop: 4 }}>Q: {item.question}</h2>
+            <div style={{ fontSize: 14, lineHeight: 1.7, color: "var(--fg)", padding: 12, background: "var(--green-light)", borderRadius: 8 }}>
+              {item.answer}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────
 export default function AdminContentPage() {
   const [activeTab, setActiveTab] = useState("ct-news");
@@ -228,6 +399,7 @@ export default function AdminContentPage() {
   const [editFaq, setEditFaq] = useState<FaqItem | null>(null);
   const [showNewFaq, setShowNewFaq] = useState(false);
   const [deleteItem, setDeleteItem] = useState<{ type: string; item: any } | null>(null);
+  const [previewItem, setPreviewItem] = useState<{ type: string; item: any } | null>(null);
 
   function showToastMsg(msg: string, type = "") {
     setToast({ msg, type });
@@ -253,6 +425,7 @@ export default function AdminContentPage() {
     setShowNewLeader(false); setEditLeader(null);
     setShowNewFaq(false); setEditFaq(null);
     setDeleteItem(null);
+    setPreviewItem(null);
     loadAll();
     showToastMsg("Saved successfully.", "success");
   }
@@ -283,6 +456,7 @@ export default function AdminContentPage() {
                     <td style={{ fontSize: 13, color: "var(--muted)" }}>{formatDate(n.created_at)}</td>
                     <td><span className={`badge ${n.status === "published" ? "badge-active" : "badge-pending"}`}>{n.status}</span></td>
                     <td className="actions">
+                      <button className="btn btn-ghost btn-xs" onClick={() => setPreviewItem({ type: "news", item: n })}>👁 Preview</button>
                       <button className="btn btn-outline btn-xs" onClick={() => setEditNews(n)}>Edit</button>
                       <button className="btn btn-danger btn-xs" onClick={() => setDeleteItem({ type: "news", item: n })}>Delete</button>
                     </td>
@@ -310,6 +484,7 @@ export default function AdminContentPage() {
                     <td style={{ fontSize: 13, color: "var(--muted)" }}>{e.location || "—"}</td>
                     <td><span className={`badge ${e.status === "open" ? "badge-active" : "badge-pending"}`}>{e.status}</span></td>
                     <td className="actions">
+                      <button className="btn btn-ghost btn-xs" onClick={() => setPreviewItem({ type: "events", item: e })}>👁 Preview</button>
                       <button className="btn btn-outline btn-xs" onClick={() => setEditEvent(e)}>Edit</button>
                       <button className="btn btn-danger btn-xs" onClick={() => setDeleteItem({ type: "events", item: e })}>Delete</button>
                     </td>
@@ -337,6 +512,7 @@ export default function AdminContentPage() {
                     <td style={{ fontSize: 13, color: "var(--muted)" }}>{l.term_label || "—"}</td>
                     <td>{l.sort_order}</td>
                     <td className="actions">
+                      <button className="btn btn-ghost btn-xs" onClick={() => setPreviewItem({ type: "leadership", item: l })}>👁 Preview</button>
                       <button className="btn btn-outline btn-xs" onClick={() => setEditLeader(l)}>Edit</button>
                       <button className="btn btn-danger btn-xs" onClick={() => setDeleteItem({ type: "leadership", item: l })}>Delete</button>
                     </td>
@@ -363,6 +539,7 @@ export default function AdminContentPage() {
                     <td><span className="badge badge-active">{f.category}</span></td>
                     <td>{f.sort_order}</td>
                     <td className="actions">
+                      <button className="btn btn-ghost btn-xs" onClick={() => setPreviewItem({ type: "faq", item: f })}>👁 Preview</button>
                       <button className="btn btn-outline btn-xs" onClick={() => setEditFaq(f)}>Edit</button>
                       <button className="btn btn-danger btn-xs" onClick={() => setDeleteItem({ type: "faq", item: f })}>Delete</button>
                     </td>
@@ -385,6 +562,7 @@ export default function AdminContentPage() {
       {showNewFaq && <FaqModal item={null} onClose={() => setShowNewFaq(false)} onSaved={handleSaved} />}
       {editFaq && <FaqModal item={editFaq} onClose={() => setEditFaq(null)} onSaved={handleSaved} />}
       {deleteItem && <ConfirmDelete type={deleteItem.type} item={deleteItem.item} onClose={() => setDeleteItem(null)} onSaved={handleSaved} />}
+      {previewItem && <PreviewModal type={previewItem.type} item={previewItem.item} onClose={() => setPreviewItem(null)} />}
 
       {toast && <div className={`toast show ${toast.type}`}>{toast.msg}</div>}
     </>

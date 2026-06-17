@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import NextImage from "next/image";
 import { useAuth } from "@/lib/useAuth";
 
 interface Props {
@@ -32,15 +33,32 @@ export default function AuthGuard({ children, requireAdmin = false }: Props) {
       <div
         style={{
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
           minHeight: "100vh",
-          color: "var(--muted)",
-          fontFamily: "var(--font-body)",
-          fontSize: 15,
+          gap: 16,
+          background: "var(--bg)",
         }}
       >
-        Loading…
+        <NextImage
+          src="/gkac-logo.png"
+          alt="GKAC"
+          width={72}
+          height={72}
+          style={{ borderRadius: 12 }}
+          priority
+        />
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            border: "3px solid var(--border)",
+            borderTopColor: "var(--green)",
+            borderRadius: "50%",
+            animation: "spin 0.8s linear infinite",
+          }}
+        />
       </div>
     );
   }

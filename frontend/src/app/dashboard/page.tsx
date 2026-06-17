@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useAuth, getExpiryInfo } from "@/lib/useAuth";
-import { api, type NewsItem, type EventItem, type Election } from "@/lib/api";
+import { api, type NewsItem, type EventItem, type Election, type RenewMembershipResult } from "@/lib/api";
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -13,6 +13,16 @@ export default function DashboardPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [elections, setElections] = useState<Election[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ─── Renewal state ─────────────────────────────────────────────────────
+  const [showRenewModal, setShowRenewModal] = useState(false);
+  const [renewStep, setRenewStep] = useState<"init" | "details" | "upload" | "done">("init");
+  const [renewLoading, setRenewLoading] = useState(false);
+  const [renewError, setRenewError] = useState("");
+  const [renewResult, setRenewResult] = useState<RenewMembershipResult | null>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [renewAmount, setRenewAmount] = useState("");
 
   const expiry = user ? getExpiryInfo(user.membershipExpiresAt) : { days: 0, expired: false };
 
@@ -70,6 +80,52 @@ export default function DashboardPage() {
     return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   }
 
+  // ─── Renewal handlers ──────────────────────────────────────────────────
+  function openRenewModal() {
+    setRenewStep("init");
+    setRenewError("");
+    setRenewResult(null);
+    setProofFile(null);
+    setRenewAmount("");
+    setShowRenewModal(true);
+  }
+
+  async function handleRenewInit() {
+    setRenewError("");
+    const amountNaira = parseInt(renewAmount, 10);
+    if (!amountNaira || amountNaira < 500) {
+      setRenewError("Please enter a valid amount (minimum ₦500).");
+      return;
+    }
+    if (!user) return;
+    setRenewLoading(true);
+    const res = await api.renewMembership(amountNaira * 100, user.email);
+    setRenewLoading(false);
+    if (res.error) { setRenewError(res.error); return; }
+    if (res.data) {
+      setRenewResult(res.data);
+      setRenewStep("details");
+    }
+  }
+
+  async function handleProofUpload() {
+    if (!proofFile || !renewResult || !user) return;
+    setUploading(true);
+    setRenewError("");
+    const res = await api.uploadPaymentProof(user.id, renewResult.paymentId, proofFile);
+    setUploading(false);
+    if (res.error) { setRenewError(res.error); return; }
+    setRenewStep("done");
+  }
+
+  function formatNaira(kobo: number) {
+    return `₦${(kobo / 100).toLocaleString("en-NG", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  }
+
+  function formatPaymentDate(d: string) {
+    return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+
   return (
     <>
       {/* Status + Renewal Banner */}
@@ -108,9 +164,18 @@ export default function DashboardPage() {
               <span style={{ fontSize: 13, color: "var(--muted)" }}>until renewal</span>
             </div>
           )}
-          {expiry.expired && (
-            <button className="btn btn-accent btn-sm" type="button">
-              Renew Now
+          {(expiry.expired || (user?.membershipExpiresAt && !expiry.expired && days <= 30)) && (
+            <button
+              className="btn btn-sm"
+              type="button"
+              onClick={openRenewModal}
+              style={{
+                background: "var(--warn)",
+                color: "#fff",
+                border: "2px solid var(--warn)",
+              }}
+            >
+              {expiry.expired ? "Renew Now" : "Renew Membership"}
             </button>
           )}
         </div>
@@ -147,7 +212,7 @@ export default function DashboardPage() {
             </Link>
           </div>
           {loading ? (
-            <p style={{ fontSize: 13, color: "var(--muted)" }}>Loading…</p>
+            <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", padding: 16 }}><span className="loader-dot" /></p>
           ) : news.length === 0 ? (
             <p style={{ fontSize: 13, color: "var(--muted)" }}>No announcements yet.</p>
           ) : (
@@ -184,7 +249,7 @@ export default function DashboardPage() {
             </Link>
           </div>
           {loading ? (
-            <p style={{ fontSize: 13, color: "var(--muted)" }}>Loading…</p>
+            <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", padding: 16 }}><span className="loader-dot" /></p>
           ) : upcomingEvents.length === 0 ? (
             <p style={{ fontSize: 13, color: "var(--muted)" }}>No upcoming events.</p>
           ) : (
@@ -235,6 +300,106 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* ─── Renewal Modal ──────────────────────────────────────────────── */}
+      {showRenewModal && (
+        <div className="modal-overlay open" onClick={() => setShowRenewModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+            <h3>Renew Membership</h3>
+            <button className="modal-close" onClick={() => setShowRenewModal(false)}>✕</button>
+
+            {renewStep === "init" && (
+              <div>
+                <p style={{ fontSize: 14, marginBottom: 16 }}>
+                  Your membership{expiry.expired ? " has expired" : ` expires in ${days} days`}. Enter the renewal amount to proceed.
+                </p>
+                <label style={{ display: "block", marginBottom: 8, fontWeight: 600, fontSize: 14 }}>
+                  Renewal Amount (₦)
+                </label>
+                <input
+                  type="number"
+                  placeholder="e.g. 35000"
+                  value={renewAmount}
+                  onChange={(e) => setRenewAmount(e.target.value)}
+                  min="500"
+                  style={{
+                    width: "100%", padding: "12px 14px", borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--border-strong)", fontSize: 16, marginBottom: 12,
+                    background: "var(--surface)", color: "var(--fg)",
+                  }}
+                />
+                {renewError && <p className="form-error visible" style={{ marginBottom: 12 }}>{renewError}</p>}
+                <button
+                  className="btn btn-accent"
+                  onClick={handleRenewInit}
+                  disabled={renewLoading}
+                  style={{ width: "100%" }}
+                >
+                  {renewLoading ? "Initialising…" : "Proceed to Payment"}
+                </button>
+              </div>
+            )}
+
+            {renewStep === "details" && renewResult && (
+              <div>
+                <div className="card" style={{ background: "var(--green-light)", marginBottom: 16, padding: 16 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>Payment Reference</p>
+                  <p style={{ fontSize: 18, fontFamily: "var(--font-mono)", fontWeight: 700, margin: "4px 0 0" }}>
+                    {renewResult.reference}
+                  </p>
+                </div>
+                <p style={{ fontSize: 14, marginBottom: 12 }}>
+                  Transfer the amount to the account below and use your <strong>Reference</strong> as the narration.
+                </p>
+                <table style={{ width: "100%", fontSize: 14, marginBottom: 16 }}>
+                  <tbody>
+                    <tr><td style={{ padding: "4px 0", color: "var(--muted)" }}>Bank</td><td style={{ fontWeight: 600 }}>{renewResult.bankDetails.bankName}</td></tr>
+                    <tr><td style={{ padding: "4px 0", color: "var(--muted)" }}>Account Name</td><td style={{ fontWeight: 600 }}>{renewResult.bankDetails.accountName}</td></tr>
+                    <tr><td style={{ padding: "4px 0", color: "var(--muted)" }}>Account Number</td><td style={{ fontWeight: 600, fontFamily: "var(--font-mono)" }}>{renewResult.bankDetails.accountNumber}</td></tr>
+                    <tr><td style={{ padding: "4px 0", color: "var(--muted)" }}>Sort Code</td><td style={{ fontWeight: 600 }}>{renewResult.bankDetails.sortCode}</td></tr>
+                  </tbody>
+                </table>
+                <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
+                  After making the transfer, upload your proof of payment below.
+                </p>
+                <label style={{ display: "block", marginBottom: 8, fontWeight: 600, fontSize: 14 }}>
+                  Upload Proof of Payment
+                </label>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+                  onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                  style={{ marginBottom: 12 }}
+                />
+                {renewError && <p className="form-error visible" style={{ marginBottom: 12 }}>{renewError}</p>}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setRenewStep("init")}>← Back</button>
+                  <button
+                    className="btn btn-accent btn-sm"
+                    onClick={handleProofUpload}
+                    disabled={!proofFile || uploading}
+                  >
+                    {uploading ? "Uploading…" : "Submit Proof"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {renewStep === "done" && (
+              <div style={{ textAlign: "center", padding: "var(--space-3) 0" }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+                <h4 style={{ marginBottom: 8 }}>Proof Submitted!</h4>
+                <p style={{ fontSize: 14, color: "var(--muted)", marginBottom: 16 }}>
+                  Your renewal payment proof has been submitted and is pending admin review. You'll be notified once approved.
+                </p>
+                <button className="btn btn-accent btn-sm" onClick={() => setShowRenewModal(false)}>
+                  Close
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }

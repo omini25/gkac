@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: "📊" },
   { href: "/dashboard/profile", label: "My Profile", icon: "👤" },
   { href: "/dashboard/card", label: "Membership Card", icon: "💳" },
+  { href: "/dashboard/billing", label: "Billing", icon: "💰" },
   { href: "/dashboard/resources", label: "Resources", icon: "📁" },
   { href: "/dashboard/elections", label: "Elections & Voting", icon: "🗳️" },
   { href: "/dashboard/events", label: "Events", icon: "📅" },
@@ -19,6 +20,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/dashboard/profile": "My Profile",
   "/dashboard/card": "Membership Card",
+  "/dashboard/billing": "Billing & Payments",
   "/dashboard/resources": "Resources & Documents",
   "/dashboard/elections": "Elections & Voting",
   "/dashboard/events": "Events",
@@ -51,7 +53,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   const pageTitle = Object.entries(PAGE_TITLES).find(([k]) => pathname === k || (k !== "/dashboard" && pathname.startsWith(k)))?.[1] || "Dashboard";
 
   const initials = user ? getUserInitials(user) : "??";
-  const displayName = user ? `${user.firstName} ${user.lastName}` : "Loading…";
+  const displayName = user ? `${user.firstName} ${user.lastName}` : "GKAC Member";
 
   return (
     <div className="app-layout">

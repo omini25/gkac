@@ -17,6 +17,9 @@ const TOKEN = process.env.ZEPTOMAIL_TOKEN || "";
 const FROM_ADDRESS = process.env.ZEPTOMAIL_FROM || "noreply@gkac.org";
 const FROM_NAME = process.env.ZEPTOMAIL_FROM_NAME || "GKAC";
 
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+const LOGIN_URL = `${FRONTEND_URL}/login`;
+
 export interface EmailRecipient {
   address: string;
   name?: string;
@@ -93,12 +96,15 @@ export const EmailTemplates = {
       htmlBody: `<p>Dear ${name},</p>
 <p>Thank you for applying to join the <strong>Global Kegite Archaverians Club (GKAC)</strong>. Your application has been received and is being processed.</p>
 <p>Please proceed with your membership payment. Once your payment is verified, your application will be reviewed for approval.</p>
+<p style="margin:16px 0;"><a href="${LOGIN_URL}" style="display:inline-block;padding:12px 24px;background:#0a5c38;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Log In to Your Account</a></p>
 <p>Best regards,<br/>GKAC Secretariat</p>`,
       textBody: `Dear ${name},
 
 Thank you for applying to join the Global Kegite Archaverians Club (GKAC). Your application has been received and is being processed.
 
 Please proceed with your membership payment. Once your payment is verified, your application will be reviewed for approval.
+
+Log in to your account: ${LOGIN_URL}
 
 Best regards,
 GKAC Secretariat`,
@@ -112,6 +118,7 @@ GKAC Secretariat`,
 <p>Congratulations! Your membership application to the <strong>Global Kegite Archaverians Club (GKAC)</strong> has been approved.</p>
 <p>Your membership number is: <strong>${membershipCode}</strong></p>
 <p>Welcome to the guild! You can now log in to access member resources, events, and more.</p>
+<p style="margin:16px 0;"><a href="${LOGIN_URL}" style="display:inline-block;padding:12px 24px;background:#0a5c38;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Log In to Your Account</a></p>
 <p>Best regards,<br/>GKAC Secretariat</p>`,
       textBody: `Dear ${name},
 
@@ -120,6 +127,8 @@ Congratulations! Your membership application to the Global Kegite Archaverians C
 Your membership number is: ${membershipCode}
 
 Welcome to the guild! You can now log in to access member resources, events, and more.
+
+Log in to your account: ${LOGIN_URL}
 
 Best regards,
 GKAC Secretariat`,
@@ -176,12 +185,15 @@ GKAC Secretariat`,
       htmlBody: `<p>Dear ${name},</p>
 <p>Your GKAC membership (<strong>${membershipCode}</strong>) is due for renewal. Your membership expires on <strong>${expiryDate}</strong>.</p>
 <p>Please log in to renew your membership and continue enjoying the benefits of the guild.</p>
+<p style="margin:16px 0;"><a href="${LOGIN_URL}" style="display:inline-block;padding:12px 24px;background:#0a5c38;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Log In to Renew</a></p>
 <p>Best regards,<br/>GKAC Secretariat</p>`,
       textBody: `Dear ${name},
 
 Your GKAC membership (${membershipCode}) is due for renewal. Your membership expires on ${expiryDate}.
 
 Please log in to renew your membership and continue enjoying the benefits of the guild.
+
+Log in to your account: ${LOGIN_URL}
 
 Best regards,
 GKAC Secretariat`,
@@ -194,12 +206,15 @@ GKAC Secretariat`,
       htmlBody: `<p>Dear ${name},</p>
 <p>We have received your proof of payment (reference: <strong>${reference}</strong>).</p>
 <p>Your application is now pending admin review. You will be notified once it has been processed.</p>
+<p style="margin:16px 0;"><a href="${LOGIN_URL}" style="display:inline-block;padding:12px 24px;background:#0a5c38;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Log In to Your Account</a></p>
 <p>Best regards,<br/>GKAC Secretariat</p>`,
       textBody: `Dear ${name},
 
 We have received your proof of payment (reference: ${reference}).
 
 Your application is now pending admin review. You will be notified once it has been processed.
+
+Log in to your account: ${LOGIN_URL}
 
 Best regards,
 GKAC Secretariat`,
@@ -226,10 +241,13 @@ GKAC Secretariat`,
       subject: "Your GKAC Membership Has Been Reinstated",
       htmlBody: `<p>Dear ${name},</p>
 <p>Your GKAC membership has been reinstated. Welcome back!</p>
+<p style="margin:16px 0;"><a href="${LOGIN_URL}" style="display:inline-block;padding:12px 24px;background:#0a5c38;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Log In to Your Account</a></p>
 <p>Best regards,<br/>GKAC Secretariat</p>`,
       textBody: `Dear ${name},
 
 Your GKAC membership has been reinstated. Welcome back!
+
+Log in to your account: ${LOGIN_URL}
 
 Best regards,
 GKAC Secretariat`,

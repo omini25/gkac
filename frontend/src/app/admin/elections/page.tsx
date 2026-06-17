@@ -286,7 +286,7 @@ export default function AdminElectionsPage() {
           </div>
 
           {loading ? (
-            <p style={{ color: "var(--muted)", padding: 20 }}>Loading…</p>
+            <p style={{ color: "var(--muted)", padding: 20, textAlign: "center" }}><span className="loader-dot" /></p>
           ) : elections.length === 0 ? (
             <p style={{ color: "var(--muted)", padding: 20 }}>No elections yet. Create your first election to get started.</p>
           ) : (
@@ -348,7 +348,7 @@ export default function AdminElectionsPage() {
               <button className="btn btn-ghost btn-sm" onClick={() => setShowDeclarations(null)}>✕ Close</button>
             </div>
             {declLoading ? (
-              <p style={{ color: "var(--muted)" }}>Loading…</p>
+              <p style={{ color: "var(--muted)", textAlign: "center", padding: 16 }}><span className="loader-dot" /></p>
             ) : declarations.length === 0 ? (
               <p style={{ color: "var(--muted)" }}>No declarations yet.</p>
             ) : (

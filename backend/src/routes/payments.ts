@@ -3,10 +3,26 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
 import { getDbPool } from "../db";
 import { EmailTemplates, sendTemplatedEmail } from "../email";
 
 export const paymentsRouter = Router();
+
+const JWT_SECRET = process.env.JWT_SECRET || "gkac-dev-secret-change-in-production";
+
+// ─── Auth helper ───────────────────────────────────────────────────────────
+function getAuthUserId(req: Request): string | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+  try {
+    const token = authHeader.slice(7);
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string };
+    return decoded.userId;
+  } catch {
+    return null;
+  }
+}
 
 const UPLOAD_DIR = path.join(__dirname, "..", "..", "uploads");
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -102,7 +118,7 @@ paymentsRouter.post("/payments/upload-proof", proofUpload.single("proof"), async
            status = 'awaiting_verification',
            updated_at = NOW()
        WHERE id = $2 AND user_id = $3
-       RETURNING id, reference, amount_kobo`,
+       RETURNING id, reference, amount_kobo, payment_type`,
       [proofUrl, paymentId, userId]
     );
 
@@ -112,7 +128,34 @@ paymentsRouter.post("/payments/upload-proof", proofUpload.single("proof"), async
 
     const payment = paymentResult.rows[0];
 
-    // Generate membership code
+    if (payment.payment_type === "renewal") {
+      // For renewals: just mark the payment, don't change membership code or app status
+      // Membership expiry will be extended when admin approves
+      const userInfo = await db.query(
+        "SELECT first_name, last_name FROM users WHERE id = $1",
+        [userId],
+      );
+      if (userInfo.rows.length > 0) {
+        const fullName = `${userInfo.rows[0].first_name} ${userInfo.rows[0].last_name}`;
+        sendTemplatedEmail(
+          { address: req.body.email || "", name: fullName },
+          EmailTemplates.paymentReceived(fullName, payment.reference),
+        );
+      }
+
+      return res.json({
+        message: "Renewal proof uploaded successfully. Your renewal is pending admin review.",
+        payment: {
+          id: payment.id,
+          reference: payment.reference,
+          amountKobo: payment.amount_kobo,
+          proofUrl,
+          status: "awaiting_verification",
+        },
+      });
+    }
+
+    // For registration: generate membership code + move to pending_approval
     const year = new Date().getFullYear();
     const random = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
     const membershipCode = `MEM-${year}-${random}`;
@@ -203,5 +246,265 @@ paymentsRouter.get("/payments/verify", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("Payment verify error:", err);
     return res.status(500).json({ error: "Failed to verify payment." });
+  }
+});
+
+// ─── GET /api/payments/history ─────────────────────────────────────────
+// Returns all payment records for the authenticated member
+paymentsRouter.get("/payments/history", async (req: Request, res: Response) => {
+  try {
+    const userId = getAuthUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required." });
+    }
+
+    const db = getDbPool();
+    const result = await db.query(
+      `SELECT id, amount_kobo, currency, reference, status, payment_type,
+              proof_of_payment_url, paid_at, created_at, updated_at
+       FROM payments
+       WHERE user_id = $1
+       ORDER BY created_at DESC`,
+      [userId]
+    );
+
+    return res.json({ payments: result.rows });
+  } catch (err) {
+    console.error("Payment history error:", err);
+    return res.status(500).json({ error: "Failed to fetch payment history." });
+  }
+});
+
+// ─── POST /api/payments/renew ──────────────────────────────────────────
+// Initiates a membership renewal payment
+paymentsRouter.post("/payments/renew", async (req: Request, res: Response) => {
+  try {
+    const userId = getAuthUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required." });
+    }
+
+    const { amountKobo, email } = req.body;
+    if (!amountKobo || !email) {
+      return res.status(400).json({ error: "amountKobo and email are required." });
+    }
+
+    const reference = `GK-RENEWAL-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+    const db = getDbPool();
+
+    const result = await db.query(
+      `INSERT INTO payments (user_id, amount_kobo, reference, payment_type, status)
+       VALUES ($1, $2, $3, 'renewal', 'pending')
+       RETURNING id, reference`,
+      [userId, amountKobo, reference]
+    );
+
+    const payment = result.rows[0];
+
+    return res.json({
+      paymentId: payment.id,
+      reference: payment.reference,
+      bankDetails: BANK_DETAILS,
+    });
+  } catch (err) {
+    console.error("Renewal payment error:", err);
+    return res.status(500).json({ error: "Failed to initiate renewal payment." });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ADMIN PAYMENT ROUTES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── GET /api/payments/admin/all ───────────────────────────────────────────
+paymentsRouter.get("/payments/admin/all", async (_req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const result = await db.query(
+      `SELECT p.id, p.amount_kobo, p.reference, p.status, p.payment_type,
+              p.proof_of_payment_url, p.paid_at, p.created_at,
+              u.id AS user_id, u.first_name, u.last_name, u.email,
+              u.membership_code, u.membership_category_name
+       FROM payments p
+       LEFT JOIN users u ON p.user_id = u.id
+       ORDER BY p.created_at DESC`
+    );
+    const payments = result.rows.map((r: any) => ({
+      id: r.id,
+      amountKobo: r.amount_kobo,
+      reference: r.reference,
+      status: r.status,
+      paymentType: r.payment_type,
+      proofUrl: r.proof_of_payment_url,
+      paidAt: r.paid_at,
+      createdAt: r.created_at,
+      member: {
+        id: r.user_id,
+        name: r.first_name ? `${r.first_name} ${r.last_name}` : "Unknown",
+        email: r.email || "—",
+        membershipCode: r.membership_code || "—",
+        category: r.membership_category_name || "—",
+      },
+    }));
+    return res.json({ payments });
+  } catch (err) {
+    console.error("Admin payments error:", err);
+    return res.status(500).json({ error: "Failed to fetch payments." });
+  }
+});
+
+// ─── GET /api/payments/admin/stats ─────────────────────────────────────────
+paymentsRouter.get("/payments/admin/stats", async (_req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const now = new Date();
+    const yearStart = new Date(now.getFullYear(), 0, 1).toISOString();
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+      .toISOString().slice(0, 10);
+
+    // Single consolidated query — more reliable than Promise.all with 4 queries
+    const result = await db.query(
+      `SELECT
+         (SELECT COALESCE(SUM(amount_kobo), 0)::bigint FROM payments
+          WHERE status = 'confirmed' AND created_at >= $1) AS total_collected,
+         (SELECT COALESCE(SUM(amount_kobo), 0)::bigint FROM payments
+          WHERE status = 'pending') AS pending_total,
+         (SELECT COALESCE(COUNT(*), 0)::bigint FROM payments
+          WHERE status = 'pending') AS pending_count,
+         (SELECT COALESCE(COUNT(*), 0)::bigint FROM users
+          WHERE is_admin = FALSE AND is_suspended = FALSE
+          AND application_status = 'approved'
+          AND membership_expires_at IS NOT NULL
+          AND membership_expires_at <= $2) AS renewals_due,
+         (SELECT COALESCE(COUNT(*), 0)::bigint FROM payments
+          WHERE created_at >= $1) AS total_payments,
+         (SELECT COALESCE(COUNT(*), 0)::bigint FROM payments
+          WHERE status = 'confirmed' AND created_at >= $1) AS confirmed_payments
+      `,
+      [yearStart, thirtyDaysFromNow]
+    );
+
+    const r = result.rows[0];
+    const totalCollected = parseInt(r.total_collected, 10) || 0;
+    const pendingTotal = parseInt(r.pending_total, 10) || 0;
+    const pendingCount = parseInt(r.pending_count, 10) || 0;
+    const renewalsDue = parseInt(r.renewals_due, 10) || 0;
+    const totalPayments = parseInt(r.total_payments, 10) || 0;
+    const confirmed = parseInt(r.confirmed_payments, 10) || 0;
+    const collectionRate = totalPayments > 0 ? Math.round((confirmed / totalPayments) * 100) : 0;
+
+    return res.json({
+      stats: {
+        totalCollected,
+        renewalsDue,
+        pendingTotal,
+        pendingCount,
+        collectionRate,
+      },
+    });
+  } catch (err) {
+    console.error("Admin payment stats error:", err);
+    return res.status(500).json({ error: "Failed to fetch payment stats." });
+  }
+});
+
+// ─── PUT /api/payments/admin/:id/confirm ───────────────────────────────────
+paymentsRouter.put("/payments/admin/:id/confirm", async (req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const { id } = req.params;
+
+    const existing = await db.query("SELECT id, status, user_id, payment_type FROM payments WHERE id = $1", [id]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: "Payment not found." });
+    if (existing.rows[0].status === "confirmed") return res.status(400).json({ error: "Payment already confirmed." });
+
+    const payment = existing.rows[0];
+
+    await db.query(
+      `UPDATE payments SET status = 'confirmed', paid_at = NOW() WHERE id = $1`,
+      [id]
+    );
+
+    // If this is a renewal payment, extend membership by 1 year
+    if (payment.payment_type === "renewal") {
+      await db.query(
+        `UPDATE users SET
+          membership_expires_at = COALESCE(membership_expires_at, NOW()) + INTERVAL '1 year'
+         WHERE id = $1`,
+        [payment.user_id]
+      );
+    }
+
+    return res.json({ message: "Payment confirmed successfully." });
+  } catch (err) {
+    console.error("Confirm payment error:", err);
+    return res.status(500).json({ error: "Failed to confirm payment." });
+  }
+});
+
+// ─── PUT /api/payments/admin/:id/reject ────────────────────────────────────
+paymentsRouter.put("/payments/admin/:id/reject", async (req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const { id } = req.params;
+
+    const existing = await db.query("SELECT id, status FROM payments WHERE id = $1", [id]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: "Payment not found." });
+    if (existing.rows[0].status !== "pending") return res.status(400).json({ error: "Only pending payments can be rejected." });
+
+    await db.query(
+      `UPDATE payments SET status = 'failed' WHERE id = $1`,
+      [id]
+    );
+
+    return res.json({ message: "Payment rejected." });
+  } catch (err) {
+    console.error("Reject payment error:", err);
+    return res.status(500).json({ error: "Failed to reject payment." });
+  }
+});
+
+// ─── GET /api/payments/admin/renewals-due ──────────────────────────────────
+paymentsRouter.get("/payments/admin/renewals-due", async (_req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      .toISOString().slice(0, 10);
+
+    const result = await db.query(
+      `SELECT u.id, u.first_name, u.last_name, u.email,
+              u.membership_code, u.membership_category_name,
+              u.membership_expires_at,
+              COALESCE(
+                (SELECT MAX(p.amount_kobo) FROM payments p
+                 WHERE p.user_id = u.id AND p.payment_type = 'renewal'
+                 AND p.status = 'confirmed'),
+                (SELECT fee_kobo FROM membership_categories WHERE name = u.membership_category_name LIMIT 1),
+                0
+              ) AS expected_amount
+       FROM users u
+       WHERE u.is_admin = FALSE
+         AND u.is_suspended = FALSE
+         AND u.application_status = 'approved'
+         AND u.membership_expires_at IS NOT NULL
+         AND u.membership_expires_at <= $1
+       ORDER BY u.membership_expires_at ASC`,
+      [thirtyDaysFromNow]
+    );
+
+    const members = result.rows.map((r: any) => ({
+      id: r.id,
+      name: `${r.first_name} ${r.last_name}`,
+      email: r.email,
+      membershipCode: r.membership_code || "—",
+      category: r.membership_category_name || "—",
+      expiresAt: r.membership_expires_at,
+      expectedAmount: Number(r.expected_amount),
+    }));
+
+    return res.json({ members });
+  } catch (err) {
+    console.error("Renewals due error:", err);
+    return res.status(500).json({ error: "Failed to fetch renewals." });
   }
 });
