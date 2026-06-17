@@ -1,0 +1,18 @@
+[build]
+  builder = "nixpacks"
+
+[deploy]
+
+# ── Backend service ─────────────────────────────────────────────
+[services.backend]
+  startCommand = "cd backend && npm start"
+
+  [services.backend.build]
+    watchPatterns = ["backend/src/**", "backend/package.json"]
+
+# ── Frontend service ────────────────────────────────────────────
+[services.frontend]
+  startCommand = "cd frontend && npm start"
+
+  [services.frontend.build]
+    watchPatterns = ["frontend/src/**", "frontend/package.json"]

@@ -1,0 +1,21 @@
+{
+  "name": "gkac",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monorepo with Node.js backend and Next.js frontend",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend",
+    "build": "npm run build --workspaces --if-present",
+    "start": "npm run start -w backend",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
