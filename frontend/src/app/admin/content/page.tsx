@@ -302,8 +302,8 @@ function PreviewModal({ type, item, onClose }: { type: string; item: any; onClos
   function fmt(d: string) {
     return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   }
-  const imgSrc = (url: string | null) => {
-    if (!url) return null;
+  const imgSrc = (url: string | null): string | undefined => {
+    if (!url) return undefined;
     if (url.startsWith("http")) return url;
     return `${API_BASE_FOR_PREVIEW}${url}`;
   };
