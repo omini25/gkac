@@ -18,10 +18,20 @@ import { contactRouter } from "./routes/contact";
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
 
+// Split comma-separated origins and strip trailing slashes
+const ALLOWED_ORIGINS = CORS_ORIGIN.split(",").map((o) => o.trim().replace(/\/+$/, ""));
+
 async function main() {
   const app = express();
 
-  app.use(cors({ origin: CORS_ORIGIN }));
+  app.use(cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (server-to-server, curl, mobile apps)
+      if (!origin) return callback(null, true);
+      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
+  }));
   app.use(express.json());
 
   // Initialize connections
