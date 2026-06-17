@@ -6,6 +6,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "migrate": "node dist/migrate.js",
+    "migrate:dev": "tsx src/migrate.ts",
     "lint": "eslint src/"
   },
   "dependencies": {
