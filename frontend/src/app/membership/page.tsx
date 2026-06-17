@@ -79,7 +79,7 @@ export default function MembershipPage() {
           ))}
         </div>
         <div style={{ textAlign: "center", marginTop: "var(--space-4)" }}>
-          <Link href="/contact" className="btn btn-accent btn-lg">
+          <Link href="/register" className="btn btn-accent btn-lg">
             Start Your Application
           </Link>
         </div>

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { getDbPool } from "../db";
+import { EmailTemplates, sendTemplatedEmail } from "../email";
 
 export const adminMembersRouter = Router();
 
@@ -240,6 +241,13 @@ adminMembersRouter.put("/admin/members/:id/approve", async (req: Request, res: R
     const u = result.rows[0];
     console.log(`[ADMIN] Member ${u.first_name} ${u.last_name} (${u.email}) approved.${notes ? ` Notes: ${notes}` : ""}`);
 
+    // Send approval email
+    const fullName = `${u.first_name} ${u.last_name}`;
+    sendTemplatedEmail(
+      { address: u.email, name: fullName },
+      EmailTemplates.approved(fullName, u.membership_code),
+    );
+
     return res.json({
       message: "Member approved successfully.",
       member: {
@@ -294,6 +302,13 @@ adminMembersRouter.put("/admin/members/:id/reject", async (req: Request, res: Re
     const u = result.rows[0];
     console.log(`[ADMIN] Member ${u.first_name} ${u.last_name} (${u.email}) rejected. Reason: ${reason}`);
 
+    // Send rejection email
+    const fullName = `${u.first_name} ${u.last_name}`;
+    sendTemplatedEmail(
+      { address: u.email, name: fullName },
+      EmailTemplates.rejected(fullName, reason.trim()),
+    );
+
     return res.json({
       message: "Member rejected. Notification will be sent.",
       member: {
@@ -316,7 +331,7 @@ adminMembersRouter.put("/admin/members/:id/suspend", async (req: Request, res: R
     const { id } = req.params;
 
     const existing = await db.query(
-      "SELECT id, application_status, is_suspended FROM users WHERE id = $1",
+      "SELECT id, first_name, last_name, email, application_status, is_suspended FROM users WHERE id = $1",
       [id]
     );
     if (existing.rows.length === 0) {
@@ -336,6 +351,13 @@ adminMembersRouter.put("/admin/members/:id/suspend", async (req: Request, res: R
       [id]
     );
 
+    // Send suspension email
+    const fullName = `${user.first_name} ${user.last_name}`;
+    sendTemplatedEmail(
+      { address: user.email, name: fullName },
+      EmailTemplates.suspended(fullName),
+    );
+
     return res.json({ message: "Member suspended successfully." });
   } catch (err) {
     console.error("Error suspending member:", err);
@@ -350,7 +372,7 @@ adminMembersRouter.put("/admin/members/:id/reinstate", async (req: Request, res:
     const { id } = req.params;
 
     const existing = await db.query(
-      "SELECT id, application_status, is_suspended FROM users WHERE id = $1",
+      "SELECT id, first_name, last_name, email, application_status, is_suspended FROM users WHERE id = $1",
       [id]
     );
     if (existing.rows.length === 0) {
@@ -367,6 +389,13 @@ adminMembersRouter.put("/admin/members/:id/reinstate", async (req: Request, res:
       [id]
     );
 
+    // Send reinstatement email
+    const fullName = `${user.first_name} ${user.last_name}`;
+    sendTemplatedEmail(
+      { address: user.email, name: fullName },
+      EmailTemplates.reinstated(fullName),
+    );
+
     return res.json({ message: "Member reinstated successfully." });
   } catch (err) {
     console.error("Error reinstating member:", err);
@@ -381,7 +410,7 @@ adminMembersRouter.post("/admin/members/:id/remind", async (req: Request, res: R
     const { id } = req.params;
 
     const result = await db.query(
-      "SELECT id, first_name, last_name, email, membership_expires_at FROM users WHERE id = $1",
+      "SELECT id, first_name, last_name, email, membership_code, membership_expires_at FROM users WHERE id = $1",
       [id]
     );
     if (result.rows.length === 0) {
@@ -389,10 +418,25 @@ adminMembersRouter.post("/admin/members/:id/remind", async (req: Request, res: R
     }
 
     const u = result.rows[0];
-    console.log(`[ADMIN] Renewal reminder sent to ${u.first_name} ${u.last_name} (${u.email})`);
+    const fullName = `${u.first_name} ${u.last_name}`;
+    const expiryDate = u.membership_expires_at
+      ? new Date(u.membership_expires_at).toLocaleDateString("en-NG", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : "N/A";
+
+    // Send renewal reminder email
+    sendTemplatedEmail(
+      { address: u.email, name: fullName },
+      EmailTemplates.renewalReminder(fullName, u.membership_code || "N/A", expiryDate),
+    );
+
+    console.log(`[ADMIN] Renewal reminder sent to ${fullName} (${u.email})`);
 
     return res.json({
-      message: `Renewal reminder sent to ${u.first_name} ${u.last_name}.`,
+      message: `Renewal reminder sent to ${fullName}.`,
     });
   } catch (err) {
     console.error("Error sending reminder:", err);

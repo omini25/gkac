@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { getDbPool } from "../db";
+import { EmailTemplates, sendTemplatedEmail } from "../email";
 
 export const contactRouter = Router();
 
@@ -61,6 +62,13 @@ contactRouter.post("/contact", async (req: Request, res: Response) => {
       `INSERT INTO contact_messages (name, email, subject, message)
        VALUES ($1, $2, $3, $4) RETURNING id, created_at`,
       [name.trim(), email.trim().toLowerCase(), subject.trim(), message.trim()]
+    );
+
+    // Notify admin via email (fire-and-forget)
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.ZEPTOMAIL_FROM || "admin@gkac.org";
+    sendTemplatedEmail(
+      { address: adminEmail, name: "GKAC Admin" },
+      EmailTemplates.contactNotification(name.trim(), email.trim().toLowerCase(), subject.trim(), message.trim()),
     );
 
     return res.status(201).json({

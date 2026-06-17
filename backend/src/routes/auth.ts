@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { getDbPool } from "../db";
+import { EmailTemplates, sendTemplatedEmail } from "../email";
 
 export const authRouter = Router();
 
@@ -102,6 +103,13 @@ authRouter.post("/auth/register", async (req: Request, res: Response) => {
     );
 
     const user = result.rows[0];
+
+    // Send welcome email (fire-and-forget)
+    const fullName = `${user.first_name} ${user.last_name}`;
+    sendTemplatedEmail(
+      { address: user.email, name: fullName },
+      EmailTemplates.welcome(fullName),
+    );
 
     return res.status(201).json({
       message: "Account created. Please complete payment to proceed.",
@@ -247,8 +255,24 @@ authRouter.post("/auth/forgot-password", async (req: Request, res: Response) => 
       [userId, resetToken, expiresAt]
     );
 
-    console.log(`[DEV] Reset token for ${email}: ${resetToken}`);
-    console.log(`[DEV] Reset link: http://localhost:3000/reset-password?token=${resetToken}`);
+    // Send password reset email
+    const userInfo = await db.query(
+      "SELECT first_name, last_name FROM users WHERE id = $1",
+      [userId],
+    );
+    const fullName = userInfo.rows.length > 0
+      ? `${userInfo.rows[0].first_name} ${userInfo.rows[0].last_name}`
+      : "Member";
+
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+    sendTemplatedEmail(
+      { address: email.toLowerCase().trim(), name: fullName },
+      EmailTemplates.passwordReset(fullName, resetLink),
+    );
+
+    console.log(`[email] Password reset link sent to ${email}`);
 
     return res.json({ message: "If an account exists, you will receive a password reset link." });
   } catch (err) {

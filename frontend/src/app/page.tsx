@@ -20,7 +20,7 @@ export default function HomePage() {
             brotherhood and service.
           </p>
           <div className="hero-actions" style={{ gap: "16px", marginTop: "var(--space-3)" }}>
-            <Link href="/membership" className="btn btn-accent btn-lg" style={{ fontSize: "18px", padding: "16px 40px" }}>
+            <Link href="/register" className="btn btn-accent btn-lg" style={{ fontSize: "18px", padding: "16px 40px" }}>
               Apply for Membership
             </Link>
             <Link href="/verification" className="btn btn-outline btn-lg" style={{ fontSize: "18px", padding: "16px 40px" }}>
@@ -293,8 +293,8 @@ export default function HomePage() {
               <p style={{ fontSize: "16px", lineHeight: "1.6", marginBottom: "var(--space-2)" }}>
                 Discover membership tiers, benefits, and the application process.
               </p>
-              <Link href="/membership" className="btn btn-accent btn-sm" style={{ fontSize: "16px", padding: "12px 28px" }}>
-                Learn More &rarr;
+              <Link href="/register" className="btn btn-accent btn-sm" style={{ fontSize: "16px", padding: "12px 28px" }}>
+                Start Membership &rarr;
               </Link>
             </div>
 
@@ -397,7 +397,7 @@ export default function HomePage() {
             brotherhood, integrity, and service. Applications are reviewed year-round.
           </p>
           <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
-            <Link href="/membership" className="btn btn-lg"
+            <Link href="/register" className="btn btn-lg"
               style={{ background: "#fff", color: "var(--green-dark)", borderColor: "#fff", fontSize: "18px", padding: "16px 40px" }}>
               Apply for Membership
             </Link>

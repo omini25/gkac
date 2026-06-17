@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { getDbPool } from "../db";
+import { EmailTemplates, sendTemplatedEmail } from "../email";
 
 export const paymentsRouter = Router();
 
@@ -130,6 +131,19 @@ paymentsRouter.post("/payments/upload-proof", proofUpload.single("proof"), async
        WHERE id = $3`,
       [membershipCode, expiresAt, userId]
     );
+
+    // Send payment confirmation email (fire-and-forget)
+    const userInfo = await db.query(
+      "SELECT first_name, last_name FROM users WHERE id = $1",
+      [userId],
+    );
+    if (userInfo.rows.length > 0) {
+      const fullName = `${userInfo.rows[0].first_name} ${userInfo.rows[0].last_name}`;
+      sendTemplatedEmail(
+        { address: req.body.email || "", name: fullName },
+        EmailTemplates.paymentReceived(fullName, payment.reference),
+      );
+    }
 
     return res.json({
       message: "Proof of payment uploaded successfully. Your application is now pending admin review.",
