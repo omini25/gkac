@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "@/lib/useAuth";
-import { api } from "@/lib/api";
 import Link from "next/link";
 
 export default function NominationPage() {
@@ -12,6 +11,7 @@ export default function NominationPage() {
   const [statement, setStatement] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: string } | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   function showToast(msg: string, type: string) {
     setToast({ msg, type });
@@ -159,17 +159,30 @@ export default function NominationPage() {
               required
             >
               <option value="">Select a position…</option>
-              <option value="president">President</option>
-              <option value="vice-president">Vice President</option>
-              <option value="general-secretary">General Secretary</option>
-              <option value="assistant-secretary">Assistant Secretary</option>
-              <option value="treasurer">Treasurer</option>
-              <option value="financial-secretary">Financial Secretary</option>
-              <option value="public-relations-officer">Public Relations Officer (PRO)</option>
-              <option value="welfare-officer">Welfare Officer</option>
-              <option value="auditor">Auditor</option>
+              <option value="president">President (₦100,000)</option>
+              <option value="vice-president">Vice President (₦50,000)</option>
+              <option value="general-secretary">General Secretary (₦50,000)</option>
+              <option value="assistant-secretary">Assistant Secretary (₦50,000)</option>
+              <option value="treasurer">Treasurer (₦50,000)</option>
+              <option value="financial-secretary">Financial Secretary (₦50,000)</option>
+              <option value="public-relations-officer">Public Relations Officer (₦50,000)</option>
+              <option value="welfare-officer">Welfare Officer (₦50,000)</option>
+              <option value="auditor">Auditor (₦50,000)</option>
             </select>
           </div>
+
+          {position && (
+            <div className="card" style={{
+              marginBottom: "var(--space-3)", padding: 12,
+              background: "var(--green-light)", border: "1px solid var(--green)",
+            }}>
+              <strong>Nomination Fee:</strong> ₦{position === "president" ? "100,000" : "50,000"}
+              <br />
+              <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                💳 Pay to <strong>Opay: 703 5330 954</strong> (Oluyemi Akintayo)
+              </span>
+            </div>
+          )}
           <div className="form-group">
             <label htmlFor="statement">Personal Statement / Manifesto</label>
             <textarea
@@ -196,6 +209,9 @@ export default function NominationPage() {
                 ? "Submit Expression of Interest"
                 : "Submit Nomination Form"}
           </button>
+          <button type="button" className="btn btn-outline btn-lg" style={{ width: "100%", marginTop: 8 }} onClick={() => window.print()}>
+            📄 Download as PDF
+          </button>
         </form>
 
         {/* Important Notice */}
@@ -204,8 +220,8 @@ export default function NominationPage() {
             <strong>Note:</strong> Payment of allotted fees validates eligibility to be voted for.
             Please ensure you have made payment to the Opay account above.
           </p>
-          <Link href="/elections/calendar" style={{ fontSize: "14px" }}>
-            View Full Election Calendar &rarr;
+          <Link href="/dashboard/elections" style={{ fontSize: "14px" }}>
+            ← Back to Elections
           </Link>
         </div>
       </div>

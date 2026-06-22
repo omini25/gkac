@@ -18,8 +18,8 @@ export default function Footer() {
             <h4>Organisation</h4>
             <ul>
               <li><Link href="/about">About Us</Link></li>
-              <li><Link href="/leadership">Leadership</Link></li>
-              <li><Link href="/constitution">Constitution</Link></li>
+              {/* <li><Link href="/leadership">Leadership</Link></li> */}
+              {/* <li><Link href="/constitution">Constitution</Link></li> */}
               <li><Link href="/elections">Elections</Link></li>
             </ul>
           </div>
@@ -37,7 +37,7 @@ export default function Footer() {
             <ul>
               <li><Link href="/contact">Contact Us</Link></li>
               <li><a href="mailto:info@gkaclub.org">info@gkaclub.org</a></li>
-              <li><a href="tel:+2348000000000">+234 800 000 0000</a></li>
+              <li><a href="tel:+2348000000000">+234 802 846 8654</a></li>
             </ul>
           </div>
         </div>

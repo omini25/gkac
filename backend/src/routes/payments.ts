@@ -317,9 +317,17 @@ paymentsRouter.post("/payments/renew", async (req: Request, res: Response) => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ─── GET /api/payments/admin/all ───────────────────────────────────────────
-paymentsRouter.get("/payments/admin/all", async (_req: Request, res: Response) => {
+paymentsRouter.get("/payments/admin/all", async (req: Request, res: Response) => {
   try {
     const db = getDbPool();
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const offset = (page - 1) * limit;
+
+    // Count total
+    const countResult = await db.query("SELECT COUNT(*)::bigint AS total FROM payments");
+    const total = parseInt(countResult.rows[0].total, 10) || 0;
+
     const result = await db.query(
       `SELECT p.id, p.amount_kobo, p.reference, p.status, p.payment_type,
               p.proof_of_payment_url, p.paid_at, p.created_at,
@@ -327,7 +335,9 @@ paymentsRouter.get("/payments/admin/all", async (_req: Request, res: Response) =
               u.membership_code, u.membership_category_name
        FROM payments p
        LEFT JOIN users u ON p.user_id = u.id
-       ORDER BY p.created_at DESC`
+       ORDER BY p.created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
     );
     const payments = result.rows.map((r: any) => ({
       id: r.id,
@@ -346,7 +356,15 @@ paymentsRouter.get("/payments/admin/all", async (_req: Request, res: Response) =
         category: r.membership_category_name || "—",
       },
     }));
-    return res.json({ payments });
+    return res.json({
+      payments,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (err) {
     console.error("Admin payments error:", err);
     return res.status(500).json({ error: "Failed to fetch payments." });
@@ -361,36 +379,58 @@ paymentsRouter.get("/payments/admin/stats", async (_req: Request, res: Response)
     const yearStart = new Date(now.getFullYear(), 0, 1).toISOString();
     const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
       .toISOString().slice(0, 10);
+    const sixtyDaysFromNow = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
+      .toISOString().slice(0, 10);
+    const today = now.toISOString().slice(0, 10);
 
-    // Single consolidated query — more reliable than Promise.all with 4 queries
     const result = await db.query(
       `SELECT
          (SELECT COALESCE(SUM(amount_kobo), 0)::bigint FROM payments
           WHERE status = 'confirmed' AND created_at >= $1) AS total_collected,
          (SELECT COALESCE(SUM(amount_kobo), 0)::bigint FROM payments
-          WHERE status = 'pending') AS pending_total,
+          WHERE status IN ('pending','awaiting_verification')) AS pending_total,
          (SELECT COALESCE(COUNT(*), 0)::bigint FROM payments
-          WHERE status = 'pending') AS pending_count,
+          WHERE status IN ('pending','awaiting_verification')) AS pending_count,
+         (SELECT COALESCE(COUNT(*), 0)::bigint FROM payments
+          WHERE status = 'awaiting_verification') AS awaiting_count,
+         (SELECT COALESCE(COUNT(*), 0)::bigint FROM payments WHERE status = 'confirmed') AS total_confirmed,
+         (SELECT COALESCE(SUM(amount_kobo), 0)::bigint FROM payments WHERE status = 'confirmed') AS lifetime_collected,
          (SELECT COALESCE(COUNT(*), 0)::bigint FROM users
           WHERE is_admin = FALSE AND is_suspended = FALSE
           AND application_status = 'approved'
           AND membership_expires_at IS NOT NULL
           AND membership_expires_at <= $2) AS renewals_due,
+         (SELECT COALESCE(COUNT(*), 0)::bigint FROM users
+          WHERE is_admin = FALSE AND is_suspended = FALSE
+          AND application_status = 'approved'
+          AND membership_expires_at IS NOT NULL
+          AND membership_expires_at > $3
+          AND membership_expires_at <= $4) AS upcoming_renewals,
          (SELECT COALESCE(COUNT(*), 0)::bigint FROM payments
           WHERE created_at >= $1) AS total_payments,
          (SELECT COALESCE(COUNT(*), 0)::bigint FROM payments
-          WHERE status = 'confirmed' AND created_at >= $1) AS confirmed_payments
+          WHERE status = 'confirmed' AND created_at >= $1) AS confirmed_payments,
+         (SELECT COALESCE(COUNT(*), 0)::bigint FROM payments
+          WHERE payment_type = 'registration' AND status = 'confirmed') AS total_registrations,
+         (SELECT COALESCE(COUNT(*), 0)::bigint FROM payments
+          WHERE payment_type = 'renewal' AND status = 'confirmed') AS total_renewals
       `,
-      [yearStart, thirtyDaysFromNow]
+      [yearStart, thirtyDaysFromNow, today, sixtyDaysFromNow]
     );
 
     const r = result.rows[0];
     const totalCollected = parseInt(r.total_collected, 10) || 0;
     const pendingTotal = parseInt(r.pending_total, 10) || 0;
     const pendingCount = parseInt(r.pending_count, 10) || 0;
+    const awaitingCount = parseInt(r.awaiting_count, 10) || 0;
+    const totalConfirmed = parseInt(r.total_confirmed, 10) || 0;
+    const lifetimeCollected = parseInt(r.lifetime_collected, 10) || 0;
     const renewalsDue = parseInt(r.renewals_due, 10) || 0;
+    const upcomingRenewals = parseInt(r.upcoming_renewals, 10) || 0;
     const totalPayments = parseInt(r.total_payments, 10) || 0;
     const confirmed = parseInt(r.confirmed_payments, 10) || 0;
+    const totalRegistrations = parseInt(r.total_registrations, 10) || 0;
+    const totalRenewals = parseInt(r.total_renewals, 10) || 0;
     const collectionRate = totalPayments > 0 ? Math.round((confirmed / totalPayments) * 100) : 0;
 
     return res.json({
@@ -399,7 +439,14 @@ paymentsRouter.get("/payments/admin/stats", async (_req: Request, res: Response)
         renewalsDue,
         pendingTotal,
         pendingCount,
+        awaitingCount,
+        totalConfirmed,
+        lifetimeCollected,
+        upcomingRenewals,
         collectionRate,
+        totalRegistrations,
+        totalRenewals,
+        totalPaymentsThisYear: totalPayments,
       },
     });
   } catch (err) {
@@ -450,7 +497,7 @@ paymentsRouter.put("/payments/admin/:id/reject", async (req: Request, res: Respo
 
     const existing = await db.query("SELECT id, status FROM payments WHERE id = $1", [id]);
     if (existing.rows.length === 0) return res.status(404).json({ error: "Payment not found." });
-    if (existing.rows[0].status !== "pending") return res.status(400).json({ error: "Only pending payments can be rejected." });
+    if (existing.rows[0].status === "confirmed") return res.status(400).json({ error: "Cannot reject an already confirmed payment." });
 
     await db.query(
       `UPDATE payments SET status = 'failed' WHERE id = $1`,
@@ -506,5 +553,52 @@ paymentsRouter.get("/payments/admin/renewals-due", async (_req: Request, res: Re
   } catch (err) {
     console.error("Renewals due error:", err);
     return res.status(500).json({ error: "Failed to fetch renewals." });
+  }
+});
+
+// ─── GET /api/payments/admin/upcoming ────────────────────────────────────
+paymentsRouter.get("/payments/admin/upcoming", async (_req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const now = new Date().toISOString().slice(0, 10);
+    const sixtyDaysFromNow = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
+      .toISOString().slice(0, 10);
+
+    const result = await db.query(
+      `SELECT u.id, u.first_name, u.last_name, u.email,
+              u.membership_code, u.membership_category_name,
+              u.membership_expires_at,
+              COALESCE(
+                (SELECT MAX(p.amount_kobo) FROM payments p
+                 WHERE p.user_id = u.id AND p.payment_type = 'renewal'
+                 AND p.status = 'confirmed'),
+                (SELECT fee_kobo FROM membership_categories WHERE name = u.membership_category_name LIMIT 1),
+                0
+              ) AS expected_amount
+       FROM users u
+       WHERE u.is_admin = FALSE
+         AND u.is_suspended = FALSE
+         AND u.application_status = 'approved'
+         AND u.membership_expires_at IS NOT NULL
+         AND u.membership_expires_at > $1
+         AND u.membership_expires_at <= $2
+       ORDER BY u.membership_expires_at ASC`,
+      [now, sixtyDaysFromNow]
+    );
+
+    const members = result.rows.map((r: any) => ({
+      id: r.id,
+      name: `${r.first_name} ${r.last_name}`,
+      email: r.email,
+      membershipCode: r.membership_code || "—",
+      category: r.membership_category_name || "—",
+      expiresAt: r.membership_expires_at,
+      expectedAmount: Number(r.expected_amount),
+    }));
+
+    return res.json({ members });
+  } catch (err) {
+    console.error("Upcoming payments error:", err);
+    return res.status(500).json({ error: "Failed to fetch upcoming payments." });
   }
 });

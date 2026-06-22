@@ -84,6 +84,37 @@ export default function AdminOverviewPage() {
         </div>
       </div>
 
+      {/* Fee Structure */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div className="card-header">
+          <h3>💰 Membership Fee Structure</h3>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table className="fee-table" style={{ margin: 0, width: "100%" }}>
+            <thead>
+              <tr><th>Fee Type</th><th>Amount</th><th>Frequency</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Membership Fee</strong></td>
+                <td>₦10,000</td>
+                <td>One-time</td>
+              </tr>
+              <tr>
+                <td><strong>Annual Dues</strong></td>
+                <td>₦24,000</td>
+                <td>Yearly</td>
+              </tr>
+              <tr>
+                <td><strong>Annual Developmental Fee</strong></td>
+                <td>₦50,000</td>
+                <td>Yearly</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
         {/* Quick Actions */}
         <div className="card">

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { api, type Election, type ElectionResults } from "@/lib/api";
+import { useState, useEffect, useRef } from "react";
+import { api, type Election, type ElectionResults, type ElectionCandidate } from "@/lib/api";
 import Link from "next/link";
 import ImageGallery from "@/components/ImageGallery";
 
@@ -68,12 +68,34 @@ export default function PublicElectionsPage() {
   const [resultsLoading, setResultsLoading] = useState(false);
   const [detailElection, setDetailElection] = useState<Election | null>(null);
 
+  // Candidates data per election (for upcoming/active tabs)
+  const [candidateMap, setCandidateMap] = useState<Record<string, ElectionCandidate[]>>({});
+  const [candidatesLoading, setCandidatesLoading] = useState<Record<string, boolean>>({});
+  const fetchedRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     api.getElections().then((res) => {
       if (res.data) setElections(res.data.elections);
       setLoading(false);
     });
   }, []);
+
+  // Fetch candidates for upcoming and active elections (once per election)
+  useEffect(() => {
+    const targetElections = elections.filter((e) => e.status === "upcoming" || e.status === "active");
+    for (const el of targetElections) {
+      if (!fetchedRef.current.has(el.id)) {
+        fetchedRef.current.add(el.id);
+        setCandidatesLoading((prev) => ({ ...prev, [el.id]: true }));
+        api.getCandidates(el.id).then((res) => {
+          if (res.data) {
+            setCandidateMap((prev) => ({ ...prev, [el.id]: res.data!.candidates }));
+          }
+          setCandidatesLoading((prev) => ({ ...prev, [el.id]: false }));
+        });
+      }
+    }
+  }, [elections]);
 
   const activeElections = elections.filter((e) => e.status === "active");
   const upcomingElections = elections.filter((e) => e.status === "upcoming");
@@ -201,10 +223,10 @@ export default function PublicElectionsPage() {
 
         {/* Action Buttons */}
         <div style={{ textAlign: "center", marginBottom: "var(--space-4)", display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
-          <Link href="/elections/expression-of-interest" className="btn btn-accent btn-lg">
+          <Link href="/dashboard/elections/expression-of-interest" className="btn btn-accent btn-lg">
             📝 Expression of Interest
           </Link>
-          <Link href="/elections/nomination" className="btn btn-outline btn-lg">
+          <Link href="/dashboard/elections/nomination" className="btn btn-outline btn-lg">
             📋 Nomination Form
           </Link>
         </div>
@@ -263,6 +285,8 @@ export default function PublicElectionsPage() {
                   <ElectionCard
                     key={el.id}
                     election={el}
+                    candidates={candidateMap[el.id]}
+                    candidatesLoading={candidatesLoading[el.id]}
                     onViewDetails={() => setDetailElection(el)}
                     onViewResults={() => openResults(el.id)}
                     formatDate={formatDate}
@@ -287,6 +311,8 @@ export default function PublicElectionsPage() {
                   <ElectionCard
                     key={el.id}
                     election={el}
+                    candidates={candidateMap[el.id]}
+                    candidatesLoading={candidatesLoading[el.id]}
                     onViewDetails={() => setDetailElection(el)}
                     onViewResults={() => {}}
                     formatDate={formatDate}
@@ -422,10 +448,12 @@ export default function PublicElectionsPage() {
 
 // ─── Election Card Component ────────────────────────────────────────────────
 function ElectionCard({
-  election, onViewDetails, onViewResults,
+  election, candidates, candidatesLoading, onViewDetails, onViewResults,
   formatDate, formatDateShort, getStatusLabel, getStatusClass,
 }: {
   election: Election;
+  candidates?: ElectionCandidate[];
+  candidatesLoading?: boolean;
   onViewDetails: () => void;
   onViewResults: () => void;
   formatDate: (d: string | null) => string;
@@ -433,6 +461,11 @@ function ElectionCard({
   getStatusLabel: (s: string) => string;
   getStatusClass: (s: string) => string;
 }) {
+  // Group candidates by position
+  const positions = candidates
+    ? groupBy(candidates, (c) => c.position_title || "Other")
+    : {};
+
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
@@ -461,6 +494,58 @@ function ElectionCard({
         )}
       </div>
 
+      {/* Positions & Candidates */}
+      {(election.status === "upcoming" || election.status === "active") && (
+        <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+          <h4 style={{ fontSize: 14, marginBottom: 12, color: "var(--text)" }}>🏛️ Positions & Candidates</h4>
+          {candidatesLoading ? (
+            <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", padding: 8 }}>
+              <span className="loader-dot" />
+            </p>
+          ) : candidates && candidates.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {Object.entries(positions).map(([positionTitle, posCandidates]) => (
+                <div key={positionTitle} style={{
+                  background: "var(--bg)", borderRadius: "var(--radius-md)",
+                  padding: "10px 14px", border: "1px solid var(--border)",
+                }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6, color: "var(--accent)" }}>
+                    {positionTitle}
+                    <span style={{ fontWeight: 400, fontSize: 12, color: "var(--muted)", marginLeft: 8 }}>
+                      {posCandidates.length} candidate{posCandidates.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {posCandidates.map((c) => (
+                      <span key={c.id} style={{
+                        display: "inline-flex", alignItems: "center", gap: 6,
+                        padding: "4px 10px", borderRadius: 20,
+                        background: "var(--surface)", border: "1px solid var(--border)",
+                        fontSize: 13,
+                      }}>
+                        <span style={{
+                          width: 22, height: 22, borderRadius: "50%",
+                          background: "var(--accent)", color: "#fff",
+                          display: "inline-flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 10, fontWeight: 700,
+                        }}>
+                          {c.first_name?.[0]}{c.last_name?.[0]}
+                        </span>
+                        {c.first_name} {c.last_name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, color: "var(--muted)", fontStyle: "italic" }}>
+              No candidates have been qualified yet. Check back later.
+            </p>
+          )}
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
         <button className="btn btn-sm btn-outline" onClick={onViewDetails}>View Details</button>
         {(election.status === "active" || election.status === "closed") && (
@@ -469,6 +554,17 @@ function ElectionCard({
       </div>
     </div>
   );
+}
+
+/** Simple groupBy helper */
+function groupBy<T>(arr: T[], keyFn: (item: T) => string): Record<string, T[]> {
+  const result: Record<string, T[]> = {};
+  for (const item of arr) {
+    const key = keyFn(item);
+    if (!result[key]) result[key] = [];
+    result[key].push(item);
+  }
+  return result;
 }
 
 

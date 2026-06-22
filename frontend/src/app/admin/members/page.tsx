@@ -24,6 +24,11 @@ interface Member {
   expiry: string | null;
   status: string;
   createdAt: string;
+  annualDuePaid?: boolean;
+  annualDueYear?: number | null;
+  annualDevelopmentalFeePaid?: boolean;
+  annualDevelopmentalFeeYear?: number | null;
+  developmentalLevyAmount?: number | null;
 }
 
 interface PaymentRecord {
@@ -103,6 +108,38 @@ export default function AdminMembersPage() {
   const [reinstateTarget, setReinstateTarget] = useState<Member | null>(null);
   const [reinstating, setReinstating] = useState(false);
 
+  // Dropdown menu state
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside() {
+      setOpenMenuId(null);
+    }
+    if (openMenuId) {
+      document.addEventListener("click", handleClickOutside);
+    }
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [openMenuId]);
+
+  // Dues confirmation modal
+  const [showDuesModal, setShowDuesModal] = useState(false);
+  const [duesTarget, setDuesTarget] = useState<Member | null>(null);
+  const [duesForm, setDuesForm] = useState({ markAnnualDue: false, markDevelopmentalFee: false, developmentalAmount: "" });
+  const [confirmingDues, setConfirmingDues] = useState(false);
+
+  // Delete modal
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Reset Password modal
+  const [showResetPwd, setShowResetPwd] = useState(false);
+  const [resetPwdTarget, setResetPwdTarget] = useState<Member | null>(null);
+  const [resetPwdMode, setResetPwdMode] = useState<"email" | "manual">("email");
+  const [resetPwdNewPassword, setResetPwdNewPassword] = useState("");
+  const [resettingPwd, setResettingPwd] = useState(false);
+
   function showToast(msg: string, type: string) {
     setToast({ msg, type });
     setTimeout(() => setToast({ msg: "", type: "" }), 3500);
@@ -123,13 +160,19 @@ export default function AdminMembersPage() {
     setLoading(false);
   }
 
-  // ─── Open detail panel with real payment history ─────────────────────────
+  // ─── Open detail panel with real payment history & dues info ─────────────
   function openPanel(m: Member) {
     setPanel(m);
     setPanelPayments([]);
     setPanelPaymentsLoading(true);
-    api.getMemberPayments(m.id).then((res) => {
-      if (res.data) setPanelPayments(res.data.payments);
+    Promise.all([
+      api.getMember(m.id),
+      api.getMemberPayments(m.id),
+    ]).then(([memberRes, payRes]) => {
+      if (memberRes.data?.member) {
+        setPanel(memberRes.data.member as Member);
+      }
+      if (payRes.data) setPanelPayments(payRes.data.payments);
       setPanelPaymentsLoading(false);
     }).catch(() => setPanelPaymentsLoading(false));
   }
@@ -370,6 +413,67 @@ export default function AdminMembersPage() {
     }
   }
 
+  // ─── Delete ────────────────────────────────────────────────────────────────
+  function openDelete(m: Member) {
+    setDeleteTarget(m);
+    setShowDelete(true);
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const res = await api.deleteMember(deleteTarget.id);
+    setDeleting(false);
+    if (res.error) {
+      showToast(res.error, "error");
+    } else {
+      showToast(res.data?.message || "Member deleted.", "success");
+      setShowDelete(false);
+      setDeleteTarget(null);
+      loadMembers();
+    }
+  }
+
+  // ─── Reset Password ────────────────────────────────────────────────────────
+  function openResetPwd(m: Member) {
+    setResetPwdTarget(m);
+    setResetPwdMode("email");
+    setResetPwdNewPassword("");
+    setShowResetPwd(true);
+  }
+
+  async function handleSendResetEmail() {
+    if (!resetPwdTarget) return;
+    setResettingPwd(true);
+    const res = await api.adminSendResetPassword(resetPwdTarget.id);
+    setResettingPwd(false);
+    if (res.error) {
+      showToast(res.error, "error");
+    } else {
+      showToast(res.data?.message || "Password reset email sent.", "success");
+      setShowResetPwd(false);
+      setResetPwdTarget(null);
+    }
+  }
+
+  async function handleForceResetPassword() {
+    if (!resetPwdTarget) return;
+    if (!resetPwdNewPassword || resetPwdNewPassword.length < 8 || !/[a-zA-Z]/.test(resetPwdNewPassword) || !/[0-9]/.test(resetPwdNewPassword)) {
+      showToast("Password must be at least 8 characters with a number and a letter.", "error");
+      return;
+    }
+    setResettingPwd(true);
+    const res = await api.adminForceResetPassword(resetPwdTarget.id, resetPwdNewPassword);
+    setResettingPwd(false);
+    if (res.error) {
+      showToast(res.error, "error");
+    } else {
+      showToast(res.data?.message || "Password reset successfully.", "success");
+      setShowResetPwd(false);
+      setResetPwdTarget(null);
+    }
+  }
+
   // ─── Remind ────────────────────────────────────────────────────────────────
   async function handleRemind(m: Member) {
     showToast(`Sending reminder to ${m.name}…`, "");
@@ -470,42 +574,62 @@ export default function AdminMembersPage() {
                     <td>{statusBadge(m.status)}</td>
                     <td>{m.expiry ? new Date(m.expiry).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</td>
                     <td className="actions">
-                      <button className="btn btn-ghost btn-xs" onClick={() => openPanel(m)}>
-                        View
-                      </button>
-                      <button className="btn btn-outline btn-xs" onClick={() => openEdit(m)}>
-                        Edit
-                      </button>
-                      {m.status === "Pending" ? (
-                        <>
-                          <button className="btn btn-accent btn-xs" onClick={() => openApprove(m)}>
-                            Approve
-                          </button>
-                          <button className="btn btn-danger btn-xs" onClick={() => openReject(m)}>
+                      <div className="dropdown-wrapper">
+                        <button
+                          className="btn btn-ghost btn-xs dropdown-trigger"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(openMenuId === m.id ? null : m.id);
+                          }}
+                          title="Actions"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <circle cx="8" cy="3" r="1.5" />
+                            <circle cx="8" cy="8" r="1.5" />
+                            <circle cx="8" cy="13" r="1.5" />
+                          </svg>
+                        </button>
+                        {openMenuId === m.id && (
+                          <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
+                            <button className="dropdown-item" onClick={() => { openPanel(m); setOpenMenuId(null); }}>
+                              👁 View
                             </button>
-                        </>
-                      ) : m.status === "Expired" ? (
-                        <button
-                          className="btn btn-accent btn-xs"
-                          onClick={() => handleRemind(m)}
-                        >
-                          Remind
-                        </button>
-                      ) : m.status === "Suspended" ? (
-                        <button
-                          className="btn btn-accent btn-xs"
-                          onClick={() => openReinstate(m)}
-                        >
-                          Reinstate
-                        </button>
-                      ) : m.status === "Active" ? (
-                        <button
-                          className="btn btn-danger btn-xs"
-                          onClick={() => openSuspend(m)}
-                        >
-                          Suspend
-                        </button>
-                      ) : null}
+                            <button className="dropdown-item" onClick={() => { openEdit(m); setOpenMenuId(null); }}>
+                              ✏️ Edit
+                            </button>
+                            <button className="dropdown-item" onClick={() => { openResetPwd(m); setOpenMenuId(null); }}>
+                              🔑 Reset Pwd
+                            </button>
+                            <div className="dropdown-divider" />
+                            {m.status === "Pending" ? (
+                              <>
+                                <button className="dropdown-item accent" onClick={() => { openApprove(m); setOpenMenuId(null); }}>
+                                  ✅ Approve
+                                </button>
+                                <button className="dropdown-item danger" onClick={() => { openReject(m); setOpenMenuId(null); }}>
+                                  ❌ Reject
+                                </button>
+                              </>
+                            ) : m.status === "Expired" ? (
+                              <button className="dropdown-item accent" onClick={() => { handleRemind(m); setOpenMenuId(null); }}>
+                                📧 Remind
+                              </button>
+                            ) : m.status === "Suspended" ? (
+                              <button className="dropdown-item accent" onClick={() => { openReinstate(m); setOpenMenuId(null); }}>
+                                🔄 Reinstate
+                              </button>
+                            ) : m.status === "Active" ? (
+                              <button className="dropdown-item danger" onClick={() => { openSuspend(m); setOpenMenuId(null); }}>
+                                ⏸ Suspend
+                              </button>
+                            ) : null}
+                            <div className="dropdown-divider" />
+                            <button className="dropdown-item danger" onClick={() => { openDelete(m); setOpenMenuId(null); }}>
+                              🗑 Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -555,6 +679,49 @@ export default function AdminMembersPage() {
                 </tbody>
               </table>
             )}
+            <h4>Dues Management</h4>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+              <div style={{
+                padding: 12, borderRadius: "var(--radius-md)", textAlign: "center",
+                background: panel.annualDuePaid ? "var(--green-light)" : "var(--bg)",
+                border: `1px solid ${panel.annualDuePaid ? "var(--green)" : "var(--border)"}`,
+              }}>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 2 }}>Annual Dues (₦24,000)</div>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>
+                  {panel.annualDuePaid
+                    ? <>✅ Paid {panel.annualDueYear ? `(${panel.annualDueYear})` : ""}</>
+                    : "❌ Not Paid"}
+                </div>
+              </div>
+              <div style={{
+                padding: 12, borderRadius: "var(--radius-md)", textAlign: "center",
+                background: panel.annualDevelopmentalFeePaid ? "var(--green-light)" : "var(--bg)",
+                border: `1px solid ${panel.annualDevelopmentalFeePaid ? "var(--green)" : "var(--border)"}`,
+              }}>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 2 }}>Dev. Fee (₦50,000)</div>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>
+                  {panel.annualDevelopmentalFeePaid
+                    ? <>✅ Paid {panel.annualDevelopmentalFeeYear ? `(${panel.annualDevelopmentalFeeYear})` : ""}</>
+                    : "❌ Not Paid"}
+                </div>
+              </div>
+            </div>
+            <button
+              className="btn btn-accent btn-sm"
+              style={{ width: "100%", marginBottom: 16 }}
+              onClick={() => {
+                setDuesTarget(panel);
+                setDuesForm({
+                  markAnnualDue: !panel.annualDuePaid,
+                  markDevelopmentalFee: !panel.annualDevelopmentalFeePaid,
+                  developmentalAmount: panel.developmentalLevyAmount ? String(panel.developmentalLevyAmount) : "",
+                });
+                setShowDuesModal(true);
+              }}
+            >
+              ✏️ Mark Dues as Paid
+            </button>
+
             <h4>Activity Log</h4>
             <ul className="activity-list">
               <li><span className="activity-dot approval" /><div>Registered: {panel.createdAt ? new Date(panel.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}</div></li>
@@ -839,6 +1006,191 @@ export default function AdminMembersPage() {
                 {reinstating ? "Reinstating…" : "Confirm Reinstate"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Dues Confirmation Modal ─────────────────────────────────────── */}
+      {showDuesModal && duesTarget && (
+        <div className="modal-overlay open" onClick={() => { if (!confirmingDues) setShowDuesModal(false); }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <button className="modal-close" onClick={() => setShowDuesModal(false)} disabled={confirmingDues}>✕</button>
+            <h3>Mark Dues as Paid</h3>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 14 }}>
+              Member: <strong>{duesTarget.name}</strong> ({duesTarget.mno})
+            </p>
+
+            <div className="form-group">
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={duesForm.markAnnualDue}
+                  onChange={(e) => setDuesForm({ ...duesForm, markAnnualDue: e.target.checked })}
+                />
+                <span>Mark Annual Dues (₦24,000) as paid</span>
+              </label>
+            </div>
+
+            <div className="form-group">
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={duesForm.markDevelopmentalFee}
+                  onChange={(e) => setDuesForm({ ...duesForm, markDevelopmentalFee: e.target.checked })}
+                />
+                <span>Mark Annual Developmental Fee (₦50,000) as paid</span>
+              </label>
+            </div>
+
+            {duesForm.markDevelopmentalFee && (
+              <div className="form-group">
+                <label>Developmental Levy Amount (kobo)</label>
+                <input
+                  type="number"
+                  value={duesForm.developmentalAmount}
+                  onChange={(e) => setDuesForm({ ...duesForm, developmentalAmount: e.target.value })}
+                  placeholder="e.g. 5000000"
+                />
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className="btn btn-ghost"
+                style={{ flex: 1 }}
+                onClick={() => setShowDuesModal(false)}
+                disabled={confirmingDues}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-accent"
+                style={{ flex: 1 }}
+                disabled={confirmingDues || (!duesForm.markAnnualDue && !duesForm.markDevelopmentalFee)}
+                onClick={async () => {
+                  setConfirmingDues(true);
+                  const res = await api.confirmDues(duesTarget.id, {
+                    markAnnualDue: duesForm.markAnnualDue,
+                    markDevelopmentalFee: duesForm.markDevelopmentalFee,
+                    developmentalAmount: duesForm.developmentalAmount ? parseInt(duesForm.developmentalAmount, 10) : undefined,
+                  });
+                  setConfirmingDues(false);
+                  if (res.error) {
+                    showToast(res.error, "error");
+                  } else {
+                    showToast(res.data?.message || "Dues marked as paid.", "success");
+                    setShowDuesModal(false);
+                    // Refresh the panel data
+                    openPanel(duesTarget);
+                  }
+                }}
+              >
+                {confirmingDues ? "Confirming…" : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Delete Modal ────────────────────────────────────────────────── */}
+      {showDelete && deleteTarget && (
+        <div className="modal-overlay open" onClick={() => setShowDelete(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowDelete(false)}>✕</button>
+            <h3>Delete Member</h3>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 14 }}>
+              Are you sure you want to permanently delete <strong>{deleteTarget.name}</strong>?
+            </p>
+            <p style={{ fontSize: 12, color: "var(--danger)", marginBottom: 16 }}>
+              This action cannot be undone. All member data including payments, votes, and declarations will be permanently removed.
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className="btn btn-outline"
+                style={{ flex: 1 }}
+                onClick={() => { setShowDelete(false); setDeleteTarget(null); }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-danger"
+                style={{ flex: 1 }}
+                disabled={deleting}
+                onClick={handleDelete}
+              >
+                {deleting ? "Deleting…" : "Confirm Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Reset Password Modal ────────────────────────────────────────── */}
+      {showResetPwd && resetPwdTarget && (
+        <div className="modal-overlay open" onClick={() => setShowResetPwd(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <button className="modal-close" onClick={() => setShowResetPwd(false)}>✕</button>
+            <h3>Reset Password</h3>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 14 }}>
+              Member: <strong>{resetPwdTarget.name}</strong> ({resetPwdTarget.email})
+            </p>
+
+            {/* Mode selector */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              <button
+                className={`btn btn-sm ${resetPwdMode === "email" ? "btn-accent" : "btn-outline"}`}
+                style={{ flex: 1 }}
+                onClick={() => setResetPwdMode("email")}
+              >
+                Send Reset Email
+              </button>
+              <button
+                className={`btn btn-sm ${resetPwdMode === "manual" ? "btn-accent" : "btn-outline"}`}
+                style={{ flex: 1 }}
+                onClick={() => setResetPwdMode("manual")}
+              >
+                Set New Password
+              </button>
+            </div>
+
+            {resetPwdMode === "email" ? (
+              <>
+                <p style={{ fontSize: 13, color: "var(--text)", marginBottom: 16 }}>
+                  A password reset link will be sent to <strong>{resetPwdTarget.email}</strong>. The link expires in 1 hour.
+                </p>
+                <button
+                  className="btn btn-accent"
+                  style={{ width: "100%" }}
+                  disabled={resettingPwd}
+                  onClick={handleSendResetEmail}
+                >
+                  {resettingPwd ? "Sending…" : "Send Reset Email"}
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="form-group">
+                  <label>New Password</label>
+                  <input
+                    type="password"
+                    value={resetPwdNewPassword}
+                    onChange={(e) => setResetPwdNewPassword(e.target.value)}
+                    placeholder="At least 8 characters with a letter and number"
+                  />
+                </div>
+                <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 16 }}>
+                  The member will be required to change their password on next login.
+                </p>
+                <button
+                  className="btn btn-accent"
+                  style={{ width: "100%" }}
+                  disabled={resettingPwd || !resetPwdNewPassword}
+                  onClick={handleForceResetPassword}
+                >
+                  {resettingPwd ? "Resetting…" : "Set New Password"}
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

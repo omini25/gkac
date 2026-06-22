@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { getDbPool } from "../db";
 import { EmailTemplates, sendTemplatedEmail } from "../email";
 
@@ -163,6 +164,9 @@ adminMembersRouter.get("/admin/members/:id", async (req: Request, res: Response)
         membership_category_id, membership_category_name,
         membership_code, application_status, rejection_reason,
         is_verified, is_admin, is_suspended, membership_expires_at,
+        annual_due_paid, annual_due_year,
+        annual_developmental_fee_paid, annual_developmental_fee_year,
+        developmental_levy_amount,
         created_at, updated_at
        FROM users WHERE id = $1`,
       [req.params.id]
@@ -195,6 +199,11 @@ adminMembersRouter.get("/admin/members/:id", async (req: Request, res: Response)
         isAdmin: u.is_admin,
         isSuspended: u.is_suspended,
         expiry: u.membership_expires_at,
+        annualDuePaid: u.annual_due_paid ?? false,
+        annualDueYear: u.annual_due_year,
+        annualDevelopmentalFeePaid: u.annual_developmental_fee_paid ?? false,
+        annualDevelopmentalFeeYear: u.annual_developmental_fee_year,
+        developmentalLevyAmount: u.developmental_levy_amount,
         status: computeDisplayStatus(u),
       },
     });
@@ -484,6 +493,190 @@ adminMembersRouter.put("/admin/members/:id/reinstate", async (req: Request, res:
   } catch (err) {
     console.error("Error reinstating member:", err);
     return res.status(500).json({ error: "Failed to reinstate member." });
+  }
+});
+
+// ─── PUT /api/admin/members/:id/dues ──────────────────────────────────────
+// Admin marks a member's annual due and/or developmental fee as paid
+adminMembersRouter.put("/admin/members/:id/dues", async (req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const { id } = req.params;
+    const { markAnnualDue, markDevelopmentalFee, developmentalAmount } = req.body;
+
+    const existing = await db.query(
+      "SELECT id, first_name, last_name, email, annual_due_paid, annual_developmental_fee_paid FROM users WHERE id = $1",
+      [id]
+    );
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: "Member not found." });
+    }
+
+    const user = existing.rows[0];
+    const currentYear = new Date().getFullYear();
+    const updates: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (markAnnualDue && !user.annual_due_paid) {
+      updates.push(`annual_due_paid = TRUE, annual_due_year = $${paramIndex++}`);
+      params.push(currentYear);
+    }
+
+    if (markDevelopmentalFee && !user.annual_developmental_fee_paid) {
+      updates.push(`annual_developmental_fee_paid = TRUE, annual_developmental_fee_year = $${paramIndex++}`);
+      params.push(currentYear);
+      if (developmentalAmount) {
+        updates.push(`developmental_levy_amount = $${paramIndex++}`);
+        params.push(developmentalAmount);
+      }
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: "No dues to mark as paid or already marked." });
+    }
+
+    updates.push(`updated_at = NOW()`);
+    params.push(id);
+
+    await db.query(
+      `UPDATE users SET ${updates.join(", ")} WHERE id = $${paramIndex}`,
+      params
+    );
+
+    const fullName = `${user.first_name} ${user.last_name}`;
+    console.log(`[ADMIN] Dues confirmed for ${fullName} (${user.email})`);
+
+    return res.json({
+      message: "Dues marked as paid successfully.",
+      memberId: id,
+    });
+  } catch (err) {
+    console.error("Error updating dues:", err);
+    return res.status(500).json({ error: "Failed to update dues." });
+  }
+});
+
+// ─── DELETE /api/admin/members/:id ──────────────────────────────────────
+adminMembersRouter.delete("/admin/members/:id", async (req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const { id } = req.params;
+
+    const existing = await db.query(
+      "SELECT id, first_name, last_name, email FROM users WHERE id = $1",
+      [id]
+    );
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: "Member not found." });
+    }
+
+    const user = existing.rows[0];
+    const fullName = `${user.first_name} ${user.last_name}`;
+
+    // Delete related records first (order matters for FK constraints)
+    await db.query("DELETE FROM election_votes WHERE voter_id = $1", [id]);
+    await db.query("DELETE FROM election_candidates WHERE user_id = $1", [id]);
+    await db.query("DELETE FROM election_declarations WHERE user_id = $1", [id]);
+    await db.query("DELETE FROM payments WHERE user_id = $1", [id]);
+    await db.query("DELETE FROM password_reset_tokens WHERE user_id = $1", [id]);
+
+    // Delete the user
+    await db.query("DELETE FROM users WHERE id = $1", [id]);
+
+    console.log(`[ADMIN] Member ${fullName} (${user.email}) deleted by admin.`);
+
+    return res.json({ message: `Member ${fullName} deleted successfully.` });
+  } catch (err) {
+    console.error("Error deleting member:", err);
+    return res.status(500).json({ error: "Failed to delete member." });
+  }
+});
+
+// ─── POST /api/admin/members/:id/send-reset-password ─────────────────────
+adminMembersRouter.post("/admin/members/:id/send-reset-password", async (req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const { id } = req.params;
+
+    const userResult = await db.query(
+      "SELECT id, first_name, last_name, email FROM users WHERE id = $1",
+      [id]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "Member not found." });
+    }
+
+    const user = userResult.rows[0];
+
+    // Invalidate old tokens
+    await db.query(
+      "UPDATE password_reset_tokens SET used = TRUE WHERE user_id = $1 AND used = FALSE",
+      [user.id]
+    );
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await db.query(
+      "INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)",
+      [user.id, resetToken, expiresAt]
+    );
+
+    const fullName = `${user.first_name} ${user.last_name}`;
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+    sendTemplatedEmail(
+      { address: user.email, name: fullName },
+      EmailTemplates.passwordReset(fullName, resetLink),
+    );
+
+    console.log(`[ADMIN] Password reset email sent to ${fullName} (${user.email}) by admin.`);
+
+    return res.json({ message: `Password reset email sent to ${fullName}.` });
+  } catch (err) {
+    console.error("Error sending admin password reset:", err);
+    return res.status(500).json({ error: "Failed to send password reset email." });
+  }
+});
+
+// ─── POST /api/admin/members/:id/force-reset-password ────────────────────
+adminMembersRouter.post("/admin/members/:id/force-reset-password", async (req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 8 || !/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      return res.status(400).json({
+        error: "Password must be at least 8 characters with a number and a letter.",
+      });
+    }
+
+    const userResult = await db.query(
+      "SELECT id, first_name, last_name, email FROM users WHERE id = $1",
+      [id]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "Member not found." });
+    }
+
+    const user = userResult.rows[0];
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await db.query(
+      "UPDATE users SET password_hash = $1, force_password_change = TRUE WHERE id = $2",
+      [passwordHash, id]
+    );
+
+    const fullName = `${user.first_name} ${user.last_name}`;
+    console.log(`[ADMIN] Password force-reset for ${fullName} (${user.email}) by admin.`);
+
+    return res.json({ message: `Password for ${fullName} has been reset. The member will be prompted to change it on next login.` });
+  } catch (err) {
+    console.error("Error force resetting password:", err);
+    return res.status(500).json({ error: "Failed to reset password." });
   }
 });
 

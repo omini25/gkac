@@ -251,6 +251,16 @@ export interface Election {
   positions_count: number;
   total_votes: number;
   eligible_voters: number;
+  declaration_start: string | null;
+  declaration_end: string | null;
+  nomination_start: string | null;
+  nomination_end: string | null;
+  eligible_voters_release_date: string | null;
+  screening_date: string | null;
+  qualified_candidates_release_date: string | null;
+  manifesto_date: string | null;
+  election_date: string | null;
+  swearing_in_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -480,11 +490,16 @@ export const api = {
     }),
 
   // ─── Admin Payments ───────────────────────────────────────────────────────
-  getAdminPayments: () =>
-    request<{ payments: any[] }>("/payments/admin/all"),
+  getAdminPayments: (page = 1, limit = 20) =>
+    request<{ payments: any[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>(
+      `/payments/admin/all?page=${page}&limit=${limit}`
+    ),
 
   getAdminPaymentStats: () =>
-    request<{ stats: { totalCollected: number; renewalsDue: number; pendingTotal: number; pendingCount: number; collectionRate: number } }>("/payments/admin/stats"),
+    request<{ stats: { totalCollected: number; renewalsDue: number; pendingTotal: number; pendingCount: number; awaitingCount: number; totalConfirmed: number; lifetimeCollected: number; upcomingRenewals: number; collectionRate: number; totalRegistrations: number; totalRenewals: number; totalPaymentsThisYear: number } }>("/payments/admin/stats"),
+
+  getAdminUpcomingPayments: () =>
+    request<{ members: any[] }>("/payments/admin/upcoming"),
 
   confirmPayment: (id: string) =>
     request<{ message: string }>(`/payments/admin/${id}/confirm`, {
@@ -594,6 +609,10 @@ export const api = {
   getResults: (electionId: string) =>
     request<ElectionResults>(`/elections/${electionId}/results`),
 
+  // Eligible voters (admin)
+  getEligibleVoters: (electionId: string) =>
+    request<{ voters: any[] }>(`/elections/${electionId}/eligible-voters`),
+
   // ─── Admin - Members ───────────────────────────────────────────────────────
   getMembers: () =>
     request<{ members: any[] }>("/admin/members"),
@@ -631,6 +650,12 @@ export const api = {
       method: "POST",
     }),
 
+  confirmDues: (id: string, data: { markAnnualDue?: boolean; markDevelopmentalFee?: boolean; developmentalAmount?: number }) =>
+    request<{ message: string; memberId: string }>(`/admin/members/${id}/dues`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
   createMember: (data: Record<string, unknown>) =>
     request<{ message: string; member: any }>("/admin/members", {
       method: "POST", body: JSON.stringify(data),
@@ -638,6 +663,22 @@ export const api = {
 
   getMemberPayments: (id: string) =>
     request<{ payments: any[] }>(`/admin/members/${id}/payments`),
+
+  deleteMember: (id: string) =>
+    request<{ message: string }>(`/admin/members/${id}`, {
+      method: "DELETE",
+    }),
+
+  adminSendResetPassword: (id: string) =>
+    request<{ message: string }>(`/admin/members/${id}/send-reset-password`, {
+      method: "POST",
+    }),
+
+  adminForceResetPassword: (id: string, newPassword: string) =>
+    request<{ message: string }>(`/admin/members/${id}/force-reset-password`, {
+      method: "POST",
+      body: JSON.stringify({ newPassword }),
+    }),
 
   // ─── Admin - Reports ───────────────────────────────────────────────────────
   getReports: () =>

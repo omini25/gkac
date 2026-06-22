@@ -109,15 +109,28 @@ electionsRouter.post("/elections", async (req: Request, res: Response) => {
   if (!(await requireAdmin(auth, res))) return;
 
   try {
-    const { title, description, startDate, endDate, eligibleRoles } = req.body;
+    const {
+      title, description, startDate, endDate, eligibleRoles,
+      declarationStart, declarationEnd,
+      nominationStart, nominationEnd,
+      eligibleVotersReleaseDate, screeningDate,
+      qualifiedCandidatesReleaseDate, manifestoDate,
+      electionDate, swearingInDate,
+    } = req.body;
     if (!title || !title.trim()) {
       return res.status(400).json({ error: "Title is required." });
     }
 
     const db = getDbPool();
     const result = await db.query(
-      `INSERT INTO elections (title, description, start_date, end_date, eligible_roles, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      `INSERT INTO elections (
+        title, description, start_date, end_date, eligible_roles, created_by,
+        declaration_start, declaration_end,
+        nomination_start, nomination_end,
+        eligible_voters_release_date, screening_date,
+        qualified_candidates_release_date, manifesto_date,
+        election_date, swearing_in_date
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *`,
       [
         title.trim(),
         description?.trim() || null,
@@ -125,6 +138,16 @@ electionsRouter.post("/elections", async (req: Request, res: Response) => {
         endDate || null,
         eligibleRoles || [],
         auth.userId,
+        declarationStart || null,
+        declarationEnd || null,
+        nominationStart || null,
+        nominationEnd || null,
+        eligibleVotersReleaseDate || null,
+        screeningDate || null,
+        qualifiedCandidatesReleaseDate || null,
+        manifestoDate || null,
+        electionDate || null,
+        swearingInDate || null,
       ]
     );
 
@@ -143,7 +166,14 @@ electionsRouter.put("/elections/:id", async (req: Request, res: Response) => {
 
   try {
     const { id } = req.params;
-    const { title, description, startDate, endDate, eligibleRoles } = req.body;
+    const {
+      title, description, startDate, endDate, eligibleRoles,
+      declarationStart, declarationEnd,
+      nominationStart, nominationEnd,
+      eligibleVotersReleaseDate, screeningDate,
+      qualifiedCandidatesReleaseDate, manifestoDate,
+      electionDate, swearingInDate,
+    } = req.body;
     const db = getDbPool();
 
     const result = await db.query(
@@ -152,14 +182,34 @@ electionsRouter.put("/elections/:id", async (req: Request, res: Response) => {
         description = COALESCE($2, description),
         start_date = COALESCE($3, start_date),
         end_date = COALESCE($4, end_date),
-        eligible_roles = COALESCE($5, eligible_roles)
-       WHERE id = $6 RETURNING *`,
+        eligible_roles = COALESCE($5, eligible_roles),
+        declaration_start = COALESCE($6, declaration_start),
+        declaration_end = COALESCE($7, declaration_end),
+        nomination_start = COALESCE($8, nomination_start),
+        nomination_end = COALESCE($9, nomination_end),
+        eligible_voters_release_date = COALESCE($10, eligible_voters_release_date),
+        screening_date = COALESCE($11, screening_date),
+        qualified_candidates_release_date = COALESCE($12, qualified_candidates_release_date),
+        manifesto_date = COALESCE($13, manifesto_date),
+        election_date = COALESCE($14, election_date),
+        swearing_in_date = COALESCE($15, swearing_in_date)
+       WHERE id = $16 RETURNING *`,
       [
         title?.trim() || null,
         description !== undefined ? (description?.trim() || null) : null,
         startDate !== undefined ? startDate : null,
         endDate !== undefined ? endDate : null,
         eligibleRoles || null,
+        declarationStart !== undefined ? declarationStart : null,
+        declarationEnd !== undefined ? declarationEnd : null,
+        nominationStart !== undefined ? nominationStart : null,
+        nominationEnd !== undefined ? nominationEnd : null,
+        eligibleVotersReleaseDate !== undefined ? eligibleVotersReleaseDate : null,
+        screeningDate !== undefined ? screeningDate : null,
+        qualifiedCandidatesReleaseDate !== undefined ? qualifiedCandidatesReleaseDate : null,
+        manifestoDate !== undefined ? manifestoDate : null,
+        electionDate !== undefined ? electionDate : null,
+        swearingInDate !== undefined ? swearingInDate : null,
         id,
       ]
     );
@@ -322,7 +372,55 @@ electionsRouter.delete("/elections/positions/:id", async (req: Request, res: Res
     return res.status(500).json({ error: "Failed to delete position." });
   }
 });
+// ============================================================================
+// ELIGIBLE VOTERS (admin)
+// ============================================================================
 
+// ─── GET /api/elections/:id/eligible-voters ───────────────────────────────
+electionsRouter.get("/elections/:id/eligible-voters", async (req: Request, res: Response) => {
+  const auth = authenticate(req, res);
+  if (!auth) return;
+  if (!(await requireAdmin(auth, res))) return;
+
+  try {
+    const db = getDbPool();
+    const result = await db.query(
+      `SELECT u.id, u.first_name, u.last_name, u.email, u.membership_code,
+              u.membership_category_name, u.membership_expires_at,
+              u.annual_due_paid, u.annual_developmental_fee_paid,
+              u.annual_due_year, u.annual_developmental_fee_year
+       FROM users u
+       WHERE u.is_admin = FALSE
+         AND u.is_suspended = FALSE
+         AND u.application_status = 'approved'
+         AND u.membership_expires_at IS NOT NULL
+         AND u.membership_expires_at > NOW()
+         AND u.annual_due_paid = TRUE
+         AND u.annual_developmental_fee_paid = TRUE
+       ORDER BY u.last_name, u.first_name`
+    );
+
+    const voters = result.rows.map((r: any) => ({
+      id: r.id,
+      name: `${r.first_name} ${r.last_name}`,
+      firstName: r.first_name,
+      lastName: r.last_name,
+      email: r.email,
+      membershipCode: r.membership_code || "—",
+      category: r.membership_category_name || "—",
+      expiresAt: r.membership_expires_at,
+      annualDuePaid: r.annual_due_paid,
+      annualDueYear: r.annual_due_year,
+      developmentalFeePaid: r.annual_developmental_fee_paid,
+      developmentalFeeYear: r.annual_developmental_fee_year,
+    }));
+
+    return res.json({ voters });
+  } catch (err) {
+    console.error("Error fetching eligible voters:", err);
+    return res.status(500).json({ error: "Failed to fetch eligible voters." });
+  }
+});
 // ============================================================================
 // DECLARATIONS (members declare interest in positions)
 // ============================================================================

@@ -4,10 +4,9 @@ import { useState } from "react";
 import { api } from "@/lib/api";
 
 const CONTACT_DETAILS = [
-  { icon: "📍", title: "Headquarters", lines: ["Global Kegite Archaverians Club", "Unity House, Main Boulevard", "Lagos, Nigeria"] },
+  // { icon: "📍", title: "Headquarters", lines: ["Global Kegite Archaverians Club", "Unity House, Main Boulevard", "Lagos, Nigeria"] },
   { icon: "📞", title: "Phone", lines: ["0703 543 5240", "+234 802 846 8654"] },
   { icon: "✉️", title: "Email", lines: ["info@gkaclub.org", "membership@gkaclub.org"] },
-  { icon: "🕐", title: "Office Hours", lines: ["Monday – Friday", "8:00 AM – 5:00 PM (WAT)", "Closed on public holidays"] },
 ];
 
 type Errors = { name?: string; email?: string; subject?: string; message?: string };

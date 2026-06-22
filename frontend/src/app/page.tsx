@@ -400,27 +400,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══════════════ PARTNERS ═══════════════ */}
-      <section className="page-section sm" aria-label="Trusted partners" style={{ background: "var(--surface)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
-        <div className="container" style={{ textAlign: "center" }}>
-          <p style={{ fontSize: "13px", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", fontWeight: 600, marginBottom: "var(--space-3)" }}>
-            Trusted Partners &amp; Affiliations
-          </p>
-          <div className="partners-strip">
-            {["NIMC", "Paystack", "African Union", "UN SDG", "NITDA", "ICPC"].map((name) => (
-              <div key={name} style={{
-                padding: "10px 24px", borderRadius: "var(--radius-md)",
-                background: "var(--bg)", border: "1px solid var(--border)",
-                fontSize: "14px", fontWeight: 700, color: "var(--muted)",
-                letterSpacing: "0.03em",
-              }}>
-                {name}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ═══════════════ CTA BANNER ═══════════════ */}
       <section className="page-section section-accent-bottom cta-banner" aria-label="Join us" style={{ background: "var(--green-dark)", padding: "var(--space-8) 0" }}>
         <div className="container" style={{ textAlign: "center", position: "relative", zIndex: 1 }}>

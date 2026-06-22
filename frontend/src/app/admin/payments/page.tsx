@@ -31,22 +31,52 @@ interface RenewalDue {
   expectedAmount: number;
 }
 
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+interface Stats {
+  totalCollected: number;
+  renewalsDue: number;
+  pendingTotal: number;
+  pendingCount: number;
+  awaitingCount: number;
+  totalConfirmed: number;
+  lifetimeCollected: number;
+  upcomingRenewals: number;
+  collectionRate: number;
+  totalRegistrations: number;
+  totalRenewals: number;
+  totalPaymentsThisYear: number;
+}
+
 export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [renewals, setRenewals] = useState<RenewalDue[]>([]);
+  const [upcoming, setUpcoming] = useState<RenewalDue[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [toast, setToast] = useState({ msg: "", type: "" });
 
+  // Pagination
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, totalPages: 0 });
+  const [pageInput, setPageInput] = useState("1");
+
   // Review modal
   const [reviewPayment, setReviewPayment] = useState<PaymentItem | null>(null);
   const [reviewing, setReviewing] = useState(false);
 
   // Stats
-  const [stats, setStats] = useState({
-    totalCollected: 0, renewalsDue: 0, pendingTotal: 0, pendingCount: 0, collectionRate: 0,
+  const [stats, setStats] = useState<Stats>({
+    totalCollected: 0, renewalsDue: 0, pendingTotal: 0, pendingCount: 0,
+    awaitingCount: 0, totalConfirmed: 0, lifetimeCollected: 0,
+    upcomingRenewals: 0, collectionRate: 0, totalRegistrations: 0,
+    totalRenewals: 0, totalPaymentsThisYear: 0,
   });
 
   function showToast(msg: string, type: string) {
@@ -56,15 +86,18 @@ export default function AdminPaymentsPage() {
 
   useEffect(() => { loadAll(); }, []);
 
-  async function loadAll() {
+  async function loadAll(page = 1) {
     setLoading(true);
-    const [payRes, statsRes, renewRes] = await Promise.all([
-      api.getAdminPayments(),
+    const [payRes, statsRes, renewRes, upRes] = await Promise.all([
+      api.getAdminPayments(page, pagination.limit),
       api.getAdminPaymentStats(),
       api.getRenewalsDue(),
+      api.getAdminUpcomingPayments(),
     ]);
-    if (payRes.data) setPayments(payRes.data.payments);
-    else if (payRes.error) showToast(payRes.error, "error");
+    if (payRes.data) {
+      setPayments(payRes.data.payments);
+      if (payRes.data.pagination) setPagination(payRes.data.pagination);
+    } else if (payRes.error) showToast(payRes.error, "error");
 
     if (statsRes.data && statsRes.data.stats) {
       setStats(statsRes.data.stats);
@@ -75,7 +108,16 @@ export default function AdminPaymentsPage() {
     if (renewRes.data) setRenewals(renewRes.data.members);
     else if (renewRes.error) console.warn("Renewals error:", renewRes.error);
 
+    if (upRes.data) setUpcoming(upRes.data.members);
+    else if (upRes.error) console.warn("Upcoming error:", upRes.error);
+
     setLoading(false);
+  }
+
+  async function goToPage(p: number) {
+    if (p < 1 || p > pagination.totalPages) return;
+    setPageInput(String(p));
+    await loadAll(p);
   }
 
   async function handleConfirm(p: PaymentItem) {
@@ -87,7 +129,7 @@ export default function AdminPaymentsPage() {
     } else {
       showToast(res.data?.message || "Payment confirmed.", "success");
       setReviewPayment(null);
-      loadAll();
+      await loadAll(pagination.page);
     }
   }
 
@@ -100,7 +142,7 @@ export default function AdminPaymentsPage() {
     } else {
       showToast(res.data?.message || "Payment rejected.", "success");
       setReviewPayment(null);
-      loadAll();
+      await loadAll(pagination.page);
     }
   }
 
@@ -150,25 +192,68 @@ export default function AdminPaymentsPage() {
     return `₦${(n / 100).toLocaleString()}`;
   }
 
+  function statusBadge(status: string) {
+    const cls =
+      status === "confirmed"
+        ? "badge badge-active"
+        : status === "awaiting_verification"
+        ? "badge badge-pending"
+        : status === "pending"
+        ? "badge badge-pending"
+        : status === "failed"
+        ? "badge badge-expired"
+        : "badge badge-pending";
+    const label =
+      status === "awaiting_verification" ? "Awaiting Review"
+      : status === "confirmed" ? "Confirmed"
+      : status === "pending" ? "Pending"
+      : status === "failed" ? "Failed"
+      : status;
+    return <span className={cls}>{label}</span>;
+  }
+
   return (
     <>
       {/* Payment Stats */}
-      <div className="stats-row">
+      <div className="stats-row" style={{ marginBottom: 20 }}>
         <div className="stat-card">
-          <div className="stat-value" style={{ color: "var(--success)" }}>{fmtNaira(stats.totalCollected)}</div>
-          <div className="stat-label">Total Collected (YTD)</div>
+          <div className="stat-value" style={{ color: "var(--success)" }}>{fmtNaira(stats.lifetimeCollected)}</div>
+          <div className="stat-label">Lifetime Collections</div>
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+            YTD: {fmtNaira(stats.totalCollected)} · {stats.totalConfirmed} payments
+          </div>
         </div>
         <div className="stat-card">
-          <div className="stat-value" style={{ color: "var(--warn)" }}>{stats.renewalsDue}</div>
-          <div className="stat-label">Renewals Due in 30 Days</div>
+          <div className="stat-value" style={{ color: "var(--accent)" }}>{stats.totalRegistrations}</div>
+          <div className="stat-label">New Registrations</div>
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+            Renewals: {stats.totalRenewals}
+          </div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{fmtNaira(stats.pendingTotal)}</div>
-          <div className="stat-label">Pending ({stats.pendingCount} payments)</div>
+          <div className="stat-value" style={{ color: stats.pendingCount > 0 ? "var(--warn)" : "var(--muted)" }}>
+            {stats.pendingCount + stats.awaitingCount}
+          </div>
+          <div className="stat-label">Pending Verification</div>
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+            {stats.awaitingCount} awaiting review · {stats.pendingCount} no proof
+          </div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{stats.collectionRate}%</div>
-          <div className="stat-label">Collection Rate</div>
+          <div className="stat-value" style={{ color: "var(--success)" }}>{stats.collectionRate}%</div>
+          <div className="stat-label">Collection Rate (YTD)</div>
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+            {fmtNaira(stats.pendingTotal)} pending value
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value" style={{ color: stats.renewalsDue > 0 ? "var(--danger)" : "var(--muted)" }}>
+            {stats.renewalsDue}
+          </div>
+          <div className="stat-label">Due (30 days)</div>
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+            {stats.upcomingRenewals} upcoming (60 days)
+          </div>
         </div>
       </div>
 
@@ -176,9 +261,14 @@ export default function AdminPaymentsPage() {
       <div className="card">
         <div className="card-header">
           <h3>Payment Records</h3>
-          <button className="btn btn-outline btn-sm" onClick={exportCSV}>
-            Export CSV
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>
+              {pagination.total} total
+            </span>
+            <button className="btn btn-outline btn-sm" onClick={exportCSV}>
+              Export CSV
+            </button>
+          </div>
         </div>
         <div className="search-bar">
           <input
@@ -195,6 +285,7 @@ export default function AdminPaymentsPage() {
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
             <option value="all">All Statuses</option>
             <option value="confirmed">Confirmed</option>
+            <option value="awaiting_verification">Awaiting Review</option>
             <option value="pending">Pending</option>
             <option value="failed">Failed</option>
           </select>
@@ -217,7 +308,7 @@ export default function AdminPaymentsPage() {
                 <tr><td colSpan={7} style={{ textAlign: "center", padding: 24 }}><span className="loader-dot" /></td></tr>
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={7} style={{ textAlign: "center", padding: 24, color: "var(--muted)" }}>
-                  {payments.length === 0 ? "No payment records yet. Payments will appear here once members submit payment proofs." : "No payments match your filters."}
+                  {payments.length === 0 ? "No payment records yet." : "No payments match your filters."}
                 </td></tr>
               ) : (
                 filtered.map((p) => (
@@ -231,20 +322,19 @@ export default function AdminPaymentsPage() {
                     <td style={{ textTransform: "capitalize" }}>{p.paymentType}</td>
                     <td style={{ fontSize: 13, color: "var(--muted)" }}>{fmtDate(p.createdAt)}</td>
                     <td style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--muted)" }}>{p.reference}</td>
-                    <td>
-                      <span className={`badge ${p.status === "confirmed" ? "badge-active" : p.status === "pending" ? "badge-pending" : "badge-expired"}`}>
-                        {p.status}
-                      </span>
-                    </td>
+                    <td>{statusBadge(p.status)}</td>
                     <td className="actions">
-                      {p.proofUrl && (
+                      {p.proofUrl || p.status === "awaiting_verification" ? (
                         <button className="btn btn-ghost btn-xs" onClick={() => setReviewPayment(p)}
                           style={{ textDecoration: "none" }}>
-                          {p.status === "pending" ? "🔍 Review" : "👁 View"}
+                          {(p.status === "pending" || p.status === "awaiting_verification") ? "🔍 Review" : "👁 View"}
                         </button>
-                      )}
-                      {p.status === "pending" && !p.proofUrl && (
-                        <span style={{ fontSize: 11, color: "var(--muted)" }}>No proof uploaded</span>
+                      ) : p.status === "pending" ? (
+                        <span style={{ fontSize: 11, color: "var(--muted)" }}>No proof</span>
+                      ) : (
+                        <button className="btn btn-ghost btn-xs" onClick={() => setReviewPayment(p)}>
+                          👁 View
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -253,12 +343,97 @@ export default function AdminPaymentsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {pagination.totalPages > 1 && (
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            gap: 6, padding: "12px 0", fontSize: 13,
+          }}>
+            <button
+              className="btn btn-outline btn-xs"
+              disabled={pagination.page <= 1}
+              onClick={() => goToPage(1)}
+              title="First page"
+            >
+              ««
+            </button>
+            <button
+              className="btn btn-outline btn-xs"
+              disabled={pagination.page <= 1}
+              onClick={() => goToPage(pagination.page - 1)}
+            >
+              « Prev
+            </button>
+            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+              let pageNum: number;
+              if (pagination.totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (pagination.page <= 3) {
+                pageNum = i + 1;
+              } else if (pagination.page >= pagination.totalPages - 2) {
+                pageNum = pagination.totalPages - 4 + i;
+              } else {
+                pageNum = pagination.page - 2 + i;
+              }
+              return (
+                <button
+                  key={pageNum}
+                  className={`btn btn-xs ${pageNum === pagination.page ? "btn-accent" : "btn-outline"}`}
+                  onClick={() => goToPage(pageNum)}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            <button
+              className="btn btn-outline btn-xs"
+              disabled={pagination.page >= pagination.totalPages}
+              onClick={() => goToPage(pagination.page + 1)}
+            >
+              Next »
+            </button>
+            <button
+              className="btn btn-outline btn-xs"
+              disabled={pagination.page >= pagination.totalPages}
+              onClick={() => goToPage(pagination.totalPages)}
+              title="Last page"
+            >
+              »»
+            </button>
+            <span style={{ color: "var(--muted)", marginLeft: 8 }}>
+              Page
+              <input
+                type="number"
+                value={pageInput}
+                onChange={(e) => setPageInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const p = parseInt(pageInput, 10);
+                    if (p >= 1 && p <= pagination.totalPages) goToPage(p);
+                  }
+                }}
+                style={{
+                  width: 50, margin: "0 4px", padding: "2px 6px",
+                  textAlign: "center", border: "1px solid var(--border)",
+                  borderRadius: 4, fontSize: 13,
+                }}
+              />
+              of {pagination.totalPages}
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Renewals Due */}
+      {/* Renewals Due (30 days) */}
       <div className="card" style={{ marginTop: 20 }}>
         <div className="card-header">
           <h3>Renewals Due (Next 30 Days)</h3>
+          {renewals.length > 0 && (
+            <span style={{ fontSize: 12, color: "var(--danger)", fontWeight: 600 }}>
+              {renewals.length} member{renewals.length !== 1 ? "s" : ""}
+            </span>
+          )}
         </div>
         <div style={{ overflowX: "auto" }}>
           {renewals.length === 0 ? (
@@ -288,9 +463,16 @@ export default function AdminPaymentsPage() {
                     <td>{fmtNaira(r.expectedAmount)}</td>
                     <td style={{ color: "var(--warn)", fontWeight: 600 }}>{fmtDate(r.expiresAt)}</td>
                     <td>
-                      <button className="btn btn-accent btn-xs" onClick={() => handleRemind(r)}>
-                        Send Reminder
-                      </button>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button className="btn btn-accent btn-xs" onClick={() => handleRemind(r)}>
+                          Send Reminder
+                        </button>
+                        <button className="btn btn-outline btn-xs" onClick={() => {
+                          setSearch(r.membershipCode);
+                        }}>
+                          View Payments
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -300,17 +482,66 @@ export default function AdminPaymentsPage() {
         </div>
       </div>
 
+      {/* Upcoming Renewals (31-60 days) */}
+      {upcoming.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card-header">
+            <h3>Upcoming Renewals (31–60 Days)</h3>
+            <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>
+              {upcoming.length} member{upcoming.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Member</th>
+                  <th>Category</th>
+                  <th>Expected Amount</th>
+                  <th>Expiry Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {upcoming.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <strong>{r.name}</strong>
+                      <br />
+                      <span style={{ fontSize: 11, color: "var(--muted)" }}>{r.membershipCode}</span>
+                    </td>
+                    <td>{r.category}</td>
+                    <td>{fmtNaira(r.expectedAmount)}</td>
+                    <td style={{ color: "var(--muted)", fontWeight: 600 }}>{fmtDate(r.expiresAt)}</td>
+                    <td>
+                      <button className="btn btn-accent btn-xs" onClick={() => handleRemind(r)}>
+                        Send Reminder
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Review / View Proof Modal */}
       {reviewPayment && (
         <div className="modal-overlay open" onClick={() => { if (!reviewing) setReviewPayment(null); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
             <button className="modal-close" onClick={() => setReviewPayment(null)} disabled={reviewing}>✕</button>
             <h3 style={{ marginBottom: 16 }}>
-              {reviewPayment.status === "pending" ? "Review Payment" : "Payment Details"}
+              {reviewPayment.status === "pending" || reviewPayment.status === "awaiting_verification"
+                ? "Review Payment" : "Payment Details"}
             </h3>
 
             {/* Member Info */}
-            <div style={{ marginBottom: 14, padding: 12, background: "var(--green-light)", borderRadius: 8, fontSize: 13 }}>
+            <div style={{
+              marginBottom: 14, padding: 12,
+              background: reviewPayment.status === "confirmed" ? "var(--green-light)" : "var(--bg)",
+              borderRadius: 8, fontSize: 13, border: "1px solid var(--border)",
+            }}>
               <strong>{reviewPayment.member.name}</strong>
               <span style={{ color: "var(--muted)", marginLeft: 10 }}>{reviewPayment.member.membershipCode}</span>
               <br />
@@ -325,9 +556,7 @@ export default function AdminPaymentsPage() {
               <div><strong>Reference</strong><br /><span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg)" }}>{reviewPayment.reference}</span></div>
               <div style={{ gridColumn: "1 / -1" }}>
                 <strong>Status</strong><br />
-                <span className={`badge ${reviewPayment.status === "confirmed" ? "badge-active" : reviewPayment.status === "pending" ? "badge-pending" : "badge-expired"}`}>
-                  {reviewPayment.status}
-                </span>
+                {statusBadge(reviewPayment.status)}
               </div>
             </div>
 
@@ -358,8 +587,8 @@ export default function AdminPaymentsPage() {
               </div>
             )}
 
-            {/* Actions for pending payments */}
-            {reviewPayment.status === "pending" && (
+            {/* Actions for unconfirmed payments */}
+            {(reviewPayment.status === "pending" || reviewPayment.status === "awaiting_verification") && (
               <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
                 <button
                   className="btn btn-danger"
@@ -377,6 +606,18 @@ export default function AdminPaymentsPage() {
                 >
                   {reviewing ? "Confirming…" : "✓ Confirm Payment"}
                 </button>
+              </div>
+            )}
+
+            {reviewPayment.status === "confirmed" && (
+              <div style={{ textAlign: "center", padding: 8, background: "var(--green-light)", borderRadius: 8, fontSize: 13, color: "var(--success)" }}>
+                ✅ Payment confirmed on {reviewPayment.paidAt ? fmtDate(reviewPayment.paidAt) : fmtDate(reviewPayment.createdAt)}
+              </div>
+            )}
+
+            {reviewPayment.status === "failed" && (
+              <div style={{ textAlign: "center", padding: 8, background: "#fef2f2", borderRadius: 8, fontSize: 13, color: "var(--danger)" }}>
+                ❌ Payment was rejected
               </div>
             )}
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { api, type Election, type ElectionPosition } from "@/lib/api";
 import { useAuth } from "@/lib/useAuth";
 import Link from "next/link";
 
@@ -19,6 +20,9 @@ const POSITIONS = [
 export default function ExpressionOfInterestPage() {
   const { user } = useAuth();
   const formRef = useRef<HTMLDivElement>(null);
+  const [elections, setElections] = useState<Election[]>([]);
+  const [positions, setPositions] = useState<ElectionPosition[]>([]);
+  const [selectedElectionId, setSelectedElectionId] = useState("");
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -26,6 +30,7 @@ export default function ExpressionOfInterestPage() {
     phone: "",
     email: "",
     position: "",
+    positionId: "",
     manifesto: "",
     date: new Date().toISOString().split("T")[0],
   });
@@ -35,6 +40,29 @@ export default function ExpressionOfInterestPage() {
   function showToast(msg: string, type: "success" | "error") {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 5000);
+  }
+
+  useEffect(() => {
+    api.getElections().then((res) => {
+      if (res.data) {
+        const now = new Date();
+        const openElections = res.data.elections.filter((el: Election) => {
+          if (el.status !== "upcoming" && el.status !== "active") return false;
+          if (!el.declaration_start || !el.declaration_end) return false;
+          const start = new Date(el.declaration_start);
+          const end = new Date(el.declaration_end);
+          return now >= start && now <= end;
+        });
+        setElections(openElections);
+      }
+    });
+  }, []);
+
+  async function loadPositions(electionId: string) {
+    const res = await api.getElection(electionId);
+    if (res.data) {
+      setPositions(res.data.election.positions || []);
+    }
   }
 
   // Auto-fill from user if logged in
@@ -54,41 +82,38 @@ export default function ExpressionOfInterestPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!formData.fullName || !formData.membershipCode || !formData.phone || !formData.email || !formData.position) {
+    if (!formData.fullName || !formData.membershipCode || !formData.phone || !formData.email || !formData.positionId) {
       showToast("Please fill in all required fields.", "error");
       return;
     }
 
     setSubmitting(true);
-    try {
-      const token = localStorage.getItem("gkac_token");
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-      const res = await fetch(`${API_BASE}/elections/nominate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          formType: "expression",
-          position: formData.position,
-          statement: formData.manifesto.trim() || null,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        showToast(json.error || "Submission failed.", "error");
-      } else {
-        showToast("Expression of Interest submitted successfully!", "success");
-      }
-    } catch {
-      showToast("Network error. Please try again.", "error");
-    }
+    const res = await api.declareInterest(selectedElectionId, formData.positionId, formData.manifesto.trim() || undefined);
     setSubmitting(false);
+    if (res.data) {
+      showToast("Expression of Interest submitted successfully!", "success");
+    } else {
+      showToast(res.error || "Submission failed.", "error");
+    }
   }
 
   function handleDownloadPdf() {
     window.print();
+  }
+
+  if (elections.length === 0 && !toast) {
+    return (
+      <div className="page-section">
+        <div className="container" style={{ maxWidth: 800, textAlign: "center" }}>
+          <div className="section-header">
+            <div className="section-divider" />
+            <h2>🗳️ Expression of Interest</h2>
+            <p>No elections are currently accepting declarations of interest. Check the election calendar for upcoming deadlines.</p>
+          </div>
+          <Link href="/dashboard/elections" className="btn btn-outline">← Back to Elections</Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -171,11 +196,30 @@ export default function ExpressionOfInterestPage() {
             </div>
 
             <div className="form-field">
+              <label>Election *</label>
+              <select
+                name="election"
+                value={selectedElectionId}
+                onChange={(e) => {
+                  setSelectedElectionId(e.target.value);
+                  loadPositions(e.target.value);
+                  setFormData((prev) => ({ ...prev, positionId: "" }));
+                }}
+                required
+              >
+                <option value="">— Select Election —</option>
+                {elections.map((el) => (
+                  <option key={el.id} value={el.id}>{el.title}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-field">
               <label>Position Interested In *</label>
-              <select name="position" value={formData.position} onChange={handleChange} required>
+              <select name="positionId" value={formData.positionId} onChange={handleChange} required>
                 <option value="">— Select Position —</option>
-                {POSITIONS.map((p) => (
-                  <option key={p} value={p.toLowerCase().replace(/\s+/g, "-")}>{p}</option>
+                {positions.map((p) => (
+                  <option key={p.id} value={p.id}>{p.title}</option>
                 ))}
               </select>
             </div>
@@ -241,7 +285,7 @@ export default function ExpressionOfInterestPage() {
           <button className="btn btn-outline btn-lg" onClick={handleDownloadPdf}>
             ⬇ Download PDF
           </button>
-          <Link href="/elections" className="btn btn-ghost btn-lg">
+          <Link href="/dashboard/elections" className="btn btn-ghost btn-lg">
             ← Back to Elections
           </Link>
         </div>

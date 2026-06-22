@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { api, type Election, type ElectionPosition, type ElectionCandidate, type ElectionDeclaration, type ElectionResults } from "@/lib/api";
 import { useAuth } from "@/lib/useAuth";
+import Link from "next/link";
 
 export default function ElectionsPage() {
   const { user } = useAuth();
@@ -26,6 +27,14 @@ export default function ElectionsPage() {
   const [declarePositionId, setDeclarePositionId] = useState("");
   const [declareStatement, setDeclareStatement] = useState("");
   const [declaring, setDeclaring] = useState(false);
+
+  // Nomination
+  const [nominateElection, setNominateElection] = useState<Election | null>(null);
+  const [nominatePositions, setNominatePositions] = useState<ElectionPosition[]>([]);
+  const [nominatePositionId, setNominatePositionId] = useState("");
+  const [nominateStatement, setNominateStatement] = useState("");
+  const [nominating, setNominating] = useState(false);
+  const [nominationFee, setNominationFee] = useState(50000);
 
   // Results modal
   const [results, setResults] = useState<ElectionResults | null>(null);
@@ -136,6 +145,26 @@ export default function ElectionsPage() {
 
   return (
     <>
+      {/* Quick actions: Expression of Interest & Nomination */}
+      <div className="card" style={{ marginBottom: "var(--space-4)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "var(--space-2)" }}>
+          <div>
+            <strong style={{ fontSize: 15 }}>2026/2028 Election Forms</strong>
+            <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
+              Submit your expression of interest or nomination form for the upcoming election.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link href="/dashboard/elections/expression-of-interest" className="btn btn-accent btn-sm">
+              📝 Expression of Interest
+            </Link>
+            <Link href="/dashboard/elections/nomination" className="btn btn-outline btn-sm">
+              📋 Nomination Form
+            </Link>
+          </div>
+        </div>
+      </div>
+
       <div className="tabs">
         <button className={`tab-btn${activeTab === "active" ? " active" : ""}`} onClick={() => setActiveTab("active")}>
           Active {activeElections.length > 0 && `(${activeElections.length})`}
@@ -176,7 +205,18 @@ export default function ElectionsPage() {
             <p style={{ color: "var(--muted)" }}>No upcoming elections scheduled.</p>
           </div>
         ) : (
-          upcomingElections.map((el) => (
+          upcomingElections.map((el) => {
+            const now = new Date();
+            const declStart = el.declaration_start ? new Date(el.declaration_start) : null;
+            const declEnd = el.declaration_end ? new Date(el.declaration_end) : null;
+            const isDeclarationOpen = declStart && declEnd && now >= declStart && now <= declEnd;
+            const nomStart = el.nomination_start ? new Date(el.nomination_start) : null;
+            const nomEnd = el.nomination_end ? new Date(el.nomination_end) : null;
+            const isNominationOpen = nomStart && nomEnd && now >= nomStart && now <= nomEnd;
+
+            const hasApprovedDeclaration = myDeclarations.some((d) => d.status === "approved");
+
+            return (
             <div key={el.id} className="card" style={{ marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
                 <div>
@@ -188,26 +228,58 @@ export default function ElectionsPage() {
                       🗓 Voting opens: {formatDate(el.start_date)}
                     </p>
                   )}
+                  {declStart && declEnd && (
+                    <p style={{ fontSize: 12, color: isDeclarationOpen ? "var(--accent)" : "var(--muted)", marginTop: 4 }}>
+                      📝 Declaration period: {formatDate(declStart.toISOString())} – {formatDate(declEnd.toISOString())}
+                      {isDeclarationOpen && <span className="badge badge-active" style={{ marginLeft: 6 }}>Open</span>}
+                    </p>
+                  )}
+                  {nomStart && nomEnd && (
+                    <p style={{ fontSize: 12, color: isNominationOpen ? "var(--accent)" : "var(--muted)", marginTop: 4 }}>
+                      📋 Nomination period: {formatDate(nomStart.toISOString())} – {formatDate(nomEnd.toISOString())}
+                      {isNominationOpen && <span className="badge badge-active" style={{ marginLeft: 6 }}>Open</span>}
+                    </p>
+                  )}
                 </div>
                 <span className="status-badge status-pending">{el.status === "draft" ? "Draft" : "Upcoming"}</span>
               </div>
 
-              <button
-                className="btn btn-outline btn-sm"
-                style={{ marginTop: 12 }}
-                onClick={async () => {
-                  setDeclareElection(el);
-                  setDeclarePositionId("");
-                  setDeclareStatement("");
-                  const posRes = await api.getElection(el.id);
-                  if (posRes.data) {
-                    setDeclarePositions(posRes.data.election.positions || []);
-                  }
-                  await loadVoteState(el.id);
-                }}
-              >
-                Declare Interest
-              </button>
+              <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                {isDeclarationOpen && (
+                  <button
+                    className="btn btn-accent btn-sm"
+                    onClick={async () => {
+                      setDeclareElection(el);
+                      setDeclarePositionId("");
+                      setDeclareStatement("");
+                      const posRes = await api.getElection(el.id);
+                      if (posRes.data) {
+                        setDeclarePositions(posRes.data.election.positions || []);
+                      }
+                      await loadVoteState(el.id);
+                    }}
+                  >
+                    📝 Declare Interest
+                  </button>
+                )}
+                {hasApprovedDeclaration && isNominationOpen && (
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={async () => {
+                      setNominateElection(el);
+                      setNominatePositionId("");
+                      setNominateStatement("");
+                      const posRes = await api.getElection(el.id);
+                      if (posRes.data) {
+                        setNominatePositions(posRes.data.election.positions || []);
+                      }
+                    }}
+                  >
+                    📋 Nomination Form
+                  </button>
+                )}
+              </div>
+
               {myDeclarations.length > 0 && (
                 <div style={{ marginTop: 12, fontSize: 13 }}>
                   <strong>My Declarations:</strong>
@@ -221,7 +293,8 @@ export default function ElectionsPage() {
                 </div>
               )}
             </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -372,7 +445,101 @@ export default function ElectionsPage() {
               >
                 {declaring ? "Submitting…" : "Submit Declaration"}
               </button>
+              <button className="btn btn-outline" onClick={() => window.print()}>
+                📄 Download PDF
+              </button>
               <button className="btn btn-ghost" onClick={() => { setDeclareElection(null); setDeclarePositionId(""); setDeclareStatement(""); }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ NOMINATION MODAL ═══ */}
+      {nominateElection && (
+        <div className="modal-overlay open" onClick={() => { setNominateElection(null); setNominatePositionId(""); setNominateStatement(""); }}>
+          <div className="modal" style={{ maxWidth: 550 }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => { setNominateElection(null); setNominatePositionId(""); setNominateStatement(""); }}>✕</button>
+            <h3>📋 Nomination Form</h3>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
+              {nominateElection.title} — Complete your nomination. Your expression of interest has been approved.
+            </p>
+
+            {/* Fee info */}
+            <div style={{
+              padding: 12, marginBottom: 16, borderRadius: "var(--radius-md)",
+              background: "var(--green-light)", border: "1px solid var(--green)",
+              fontSize: 13,
+            }}>
+              <strong>Nomination Fee:</strong>
+              <span style={{ marginLeft: 8 }}>
+                President: <strong>₦100,000</strong> | Other Positions: <strong>₦50,000</strong>
+              </span>
+            </div>
+
+            <div className="form-group">
+              <label>Position *</label>
+              <select
+                value={nominatePositionId}
+                onChange={(e) => {
+                  setNominatePositionId(e.target.value);
+                  const pos = nominatePositions.find((p) => p.id === e.target.value);
+                  setNominationFee(pos?.title?.toLowerCase() === "president" ? 100000 : 50000);
+                }}
+              >
+                <option value="">— Select a position —</option>
+                {nominatePositions.map((pos) => (
+                  <option key={pos.id} value={pos.id}>
+                    {pos.title} ({pos.title.toLowerCase() === "president" ? "₦100,000" : "₦50,000"})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Personal Statement / Manifesto</label>
+              <textarea
+                rows={4}
+                value={nominateStatement}
+                onChange={(e) => setNominateStatement(e.target.value)}
+                placeholder="Tell members why you're the right candidate…"
+              />
+            </div>
+
+            <div style={{
+              padding: 10, marginBottom: 16, borderRadius: "var(--radius-md)",
+              background: "var(--bg)", border: "1px solid var(--border)",
+              fontSize: 13,
+            }}>
+              <strong>💳 Payment:</strong> Pay <strong>₦{(nominationFee).toLocaleString()}</strong> to <strong>Opay: 703 5330 954</strong> (Oluyemi Akintayo)
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className="btn btn-accent"
+                onClick={async () => {
+                  if (!nominateElection || !nominatePositionId) return;
+                  setNominating(true);
+                  const res = await api.declareInterest(nominateElection.id, nominatePositionId, nominateStatement || undefined);
+                  setNominating(false);
+                  if (res.data) {
+                    showToast("Nomination submitted! Awaiting processing.", "success");
+                    setNominateElection(null);
+                    setNominatePositionId("");
+                    setNominateStatement("");
+                  } else {
+                    showToast(res.error || "Failed to submit nomination", "error");
+                  }
+                }}
+                disabled={nominating || !nominatePositionId}
+              >
+                {nominating ? "Submitting…" : "Submit Nomination"}
+              </button>
+              <button className="btn btn-outline" onClick={() => window.print()}>
+                📄 Download PDF
+              </button>
+              <button className="btn btn-ghost" onClick={() => { setNominateElection(null); setNominatePositionId(""); setNominateStatement(""); }}>
                 Cancel
               </button>
             </div>
