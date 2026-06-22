@@ -726,7 +726,7 @@ export const api = {
       method: "PUT", body: JSON.stringify(data),
     }),
 
-  changePassword: (currentPassword: string, newPassword: string) =>
+  adminChangePassword: (currentPassword: string, newPassword: string) =>
     request<{ message: string }>("/admin/profile/password", {
       method: "PUT", body: JSON.stringify({ currentPassword, newPassword }),
     }),

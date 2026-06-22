@@ -78,7 +78,7 @@ export default function AdminProfilePage() {
       return;
     }
     setPasswordSaving(true);
-    const res = await api.changePassword(currentPassword, newPassword);
+    const res = await api.adminChangePassword(currentPassword, newPassword);
     setPasswordSaving(false);
     if (res.error) {
       showToast(res.error, "error");

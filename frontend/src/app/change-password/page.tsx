@@ -68,9 +68,10 @@ export default function ChangePasswordPage() {
       return;
     }
 
+    const redirectTo = user!.isAdmin ? "/admin" : "/dashboard";
     setSuccess("Password changed successfully! Redirecting to dashboard…");
     setTimeout(() => {
-      window.location.href = user.isAdmin ? "/admin" : "/dashboard";
+      window.location.href = redirectTo;
     }, 1500);
   }
 
