@@ -10,6 +10,10 @@
   [services.backend.build]
     watchPatterns = ["backend/src/**", "backend/package.json"]
 
+  # Persistent volume for uploaded files (images, payment proofs, etc.)
+  [services.backend.volumes]
+    "uploads" = "/app/uploads"
+
 # ── Frontend service ────────────────────────────────────────────
 [services.frontend]
   startCommand = "cd frontend && npm start"

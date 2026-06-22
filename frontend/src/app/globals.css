@@ -1403,6 +1403,190 @@ a:hover { color: var(--accent-hover); }
   width: 2px; background: linear-gradient(to bottom, var(--green), transparent);
   border-radius: 1px;
 }
+
+/* ════════════════════════════════════════════════════════════
+   EXPRESSION OF INTEREST FORM — Print / PDF Styles
+   ════════════════════════════════════════════════════════════ */
+.eoi-form-print {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  max-width: 750px;
+  margin: 0 auto;
+}
+
+.eoi-header {
+  text-align: center;
+  border-bottom: 3px double var(--green-dark);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.eoi-header h1 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--green-dark);
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.eoi-header h2 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--fg);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+
+.eoi-header p {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.eoi-body .form-field {
+  margin-bottom: var(--space-2);
+}
+
+.eoi-body .form-field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 3px;
+}
+
+.eoi-body .form-field input,
+.eoi-body .form-field select,
+.eoi-body .form-field textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: 14px;
+  background: var(--surface);
+  color: var(--fg);
+  transition: border-color 0.2s;
+}
+
+.eoi-body .form-field input:focus,
+.eoi-body .form-field select:focus,
+.eoi-body .form-field textarea:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-bg);
+}
+
+.eoi-declaration {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  background: oklch(97% 0.003 252);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.eoi-declaration h4 {
+  font-size: 15px;
+  color: var(--green-dark);
+  margin-bottom: var(--space-1);
+}
+
+.eoi-declaration p {
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: var(--space-2);
+}
+
+.signature-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.signature-field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.sig-line {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+.eoi-official {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  background: oklch(98% 0.01 90 / 0.4);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border-strong);
+}
+
+.eoi-official h4 {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: var(--space-2);
+}
+
+.eoi-official p {
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+/* ── Print-specific: hide nav, footer, buttons ── */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .eoi-form-print,
+  .eoi-form-print * {
+    visibility: visible;
+  }
+  .eoi-form-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    border: none;
+    border-radius: 0;
+    padding: 20px 30px;
+    box-shadow: none;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .eoi-body .form-field input,
+  .eoi-body .form-field select,
+  .eoi-body .form-field textarea {
+    border: 1px solid #ccc;
+    background: #fff;
+  }
+  .eoi-header {
+    border-bottom-color: #000;
+  }
+  .eoi-header h1,
+  .eoi-header h2 {
+    color: #000;
+  }
+  .eoi-declaration {
+    border-color: #ccc;
+    background: #f9f9f9;
+  }
+  .eoi-official {
+    border-color: #999;
+  }
+  @page {
+    margin: 15mm 10mm;
+  }
+}
 .milestone-item {
   position: relative; padding-bottom: var(--space-4);
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { api, type DuesMember } from "@/lib/api";
+import ImageGallery from "@/components/ImageGallery";
 
 const FEE_STRUCTURE = [
   { fee: "Membership Fee", amount: "₦10,000", frequency: "One-time", description: "Payable upon registration to become a member" },
@@ -113,6 +114,11 @@ export default function MembershipPage() {
             </div>
           ))}
         </div>
+
+        {/* ════════════════════════════════════════════════ */}
+        {/* EVENT GALLERY                                  */}
+        {/* ════════════════════════════════════════════════ */}
+        <EventGallery />
 
         {/* Online & Offline Options */}
         <div style={{ marginTop: "var(--space-5)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "var(--space-3)" }}>
@@ -244,5 +250,50 @@ export default function MembershipPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Event Gallery ──────────────────────────────────────────────────────────
+function EventGallery() {
+  const images = [
+    "WhatsApp Image 2026-06-20 at 11.57.33.jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.33 (1).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.33 (2).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.33 (3).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.34.jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.34 (1).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.34 (2).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.34 (3).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.34 (4).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.35.jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.35 (1).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.35 (2).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.35 (3).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.35 (4).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.36.jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.36 (1).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.36 (2).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.36 (3).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.36 (4).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.37.jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.37 (1).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.37 (2).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.37 (3).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.37 (4).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.38.jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.38 (1).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.38 (2).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.57.38 (3).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.58.27 (1).jpeg",
+    "WhatsApp Image 2026-06-20 at 11.58.27.jpeg",
+  ];
+
+  return (
+    <ImageGallery
+      images={images}
+      folder="event"
+      title="📸 GKAC Event Gallery"
+      description="Photos from recent GKAC events and activities. Click any image to view full size and download."
+    />
   );
 }

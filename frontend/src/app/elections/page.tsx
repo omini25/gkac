@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { api, type Election, type ElectionResults } from "@/lib/api";
 import Link from "next/link";
+import ImageGallery from "@/components/ImageGallery";
 
 // ─── Election Calendar Timeline Data ────────────────────────────────────────
 const ELECTION_TIMELINE = [
@@ -75,7 +76,7 @@ export default function PublicElectionsPage() {
   }, []);
 
   const activeElections = elections.filter((e) => e.status === "active");
-  const upcomingElections = elections.filter((e) => e.status === "upcoming" || e.status === "draft");
+  const upcomingElections = elections.filter((e) => e.status === "upcoming");
   const pastElections = elections.filter((e) => e.status === "closed");
 
   function formatDate(d: string | null) {
@@ -200,10 +201,34 @@ export default function PublicElectionsPage() {
 
         {/* Action Buttons */}
         <div style={{ textAlign: "center", marginBottom: "var(--space-4)", display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
-          <Link href="/elections/nomination" className="btn btn-accent btn-lg">
-            Express Interest / Nomination Form
+          <Link href="/elections/expression-of-interest" className="btn btn-accent btn-lg">
+            📝 Expression of Interest
+          </Link>
+          <Link href="/elections/nomination" className="btn btn-outline btn-lg">
+            📋 Nomination Form
           </Link>
         </div>
+
+        {/* ════════════════════════════════════════════════ */}
+        {/* MEMBERS' CAMPAIGN GALLERY                      */}
+        {/* ════════════════════════════════════════════════ */}
+        <ImageGallery
+          images={[
+            "WhatsApp Image 2026-06-22 at 10.53.49.jpeg",
+            "WhatsApp Image 2026-06-22 at 10.53.49 (1).jpeg",
+            "WhatsApp Image 2026-06-22 at 10.53.49 (2).jpeg",
+            "WhatsApp Image 2026-06-22 at 10.53.50.jpeg",
+            "WhatsApp Image 2026-06-22 at 10.53.50 (1).jpeg",
+            "WhatsApp Image 2026-06-22 at 10.53.50 (2).jpeg",
+            "WhatsApp Image 2026-06-22 at 10.53.50 (3).jpeg",
+            "WhatsApp Image 2026-06-22 at 10.53.50 (4).jpeg",
+            "WhatsApp Image 2026-06-22 at 10.53.51.jpeg",
+            "WhatsApp Image 2026-06-22 at 10.53.51 (1).jpeg",
+          ]}
+          folder="election-campagins"
+          title="🗳️ Members&apos; Campaign Gallery"
+          description="View campaign materials from candidates contesting in the 2026/2028 GKAC elections. Click any image to view full size and download."
+        />
 
         {/* ════════════════════════════════════════════════ */}
         {/* ELECTION LISTS                                  */}
@@ -445,3 +470,5 @@ function ElectionCard({
     </div>
   );
 }
+
+

@@ -15,6 +15,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/sql ./sql
+RUN mkdir -p /app/uploads && chown appuser:appuser /app/uploads
 USER appuser
 EXPOSE 3001
 ENV NODE_ENV=production
