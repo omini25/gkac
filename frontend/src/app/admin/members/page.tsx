@@ -84,6 +84,9 @@ export default function AdminMembersPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [rejecting, setRejecting] = useState(false);
 
+  // Categories
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+
   // Edit modal
   const [showEdit, setShowEdit] = useState(false);
   const [editTarget, setEditTarget] = useState<Member | null>(null);
@@ -147,7 +150,15 @@ export default function AdminMembersPage() {
 
   useEffect(() => {
     loadMembers();
+    loadCategories();
   }, []);
+
+  async function loadCategories() {
+    const res = await api.getAdminCategories();
+    if (res.data?.categories) {
+      setCategories(res.data.categories);
+    }
+  }
 
   async function loadMembers() {
     setLoading(true);
@@ -348,11 +359,13 @@ export default function AdminMembersPage() {
   async function handleEdit() {
     if (!editTarget) return;
     setEditing(true);
+    const matchedCat = categories.find((c) => c.name === editForm.category);
     const res = await api.updateMember(editTarget.id, {
       firstName: editForm.firstName,
       lastName: editForm.lastName,
       email: editForm.email,
       phone: editForm.phone,
+      membershipCategoryId: matchedCat?.id || null,
       membershipCategoryName: editForm.category,
       membershipCode: editForm.membershipCode || null,
     });
@@ -522,7 +535,13 @@ export default function AdminMembersPage() {
           </select>
           <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)}>
             <option value="all">All Categories</option>
-            <option value="Member">Member</option>
+            {categories.length > 0 ? (
+              categories.map((c) => (
+                <option key={c.id} value={c.name}>{c.name}</option>
+              ))
+            ) : (
+              <option value="Member">Member</option>
+            )}
           </select>
         </div>
 
@@ -851,7 +870,13 @@ export default function AdminMembersPage() {
                   value={editForm.category || ""}
                   onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                 >
-                  <option value="Member">Member</option>
+                  {categories.length === 0 ? (
+                    <option value="Member">Member</option>
+                  ) : (
+                    categories.map((c) => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))
+                  )}
                 </select>
               </div>
               <div className="form-group">
@@ -912,7 +937,13 @@ export default function AdminMembersPage() {
                   <label>Category</label>
                   <select value={addForm.category}
                     onChange={(e) => setAddForm({ ...addForm, category: e.target.value })}>
-                    <option value="Member">Member</option>
+                    {categories.length === 0 ? (
+                      <option value="Member">Member</option>
+                    ) : (
+                      categories.map((c) => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))
+                    )}
                   </select>
                 </div>
                 <div className="form-group">

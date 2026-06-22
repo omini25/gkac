@@ -3,7 +3,9 @@ WORKDIR /app
 COPY backend/package.json backend/package-lock.json* ./
 RUN npm ci
 COPY backend/tsconfig.json ./
-COPY backend/src/ ./src/
+# Only copy production source files — exclude seed scripts, test files, and utilities
+COPY backend/src/index.ts backend/src/db.ts backend/src/email.ts backend/src/migrate.ts backend/src/redis.ts ./src/
+COPY backend/src/routes/ ./src/routes/
 COPY backend/sql/ ./sql/
 RUN npm run build
 
