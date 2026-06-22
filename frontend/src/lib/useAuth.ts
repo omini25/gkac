@@ -17,6 +17,9 @@ export interface AuthUser {
   membershipExpiresAt: string | null;
   passportPhotoUrl: string | null;
   createdAt: string | null;
+  forcePasswordChange: boolean;
+  annualDevelopmentalFeePaid: boolean;
+  annualDuePaid: boolean;
 }
 
 interface AuthState {
@@ -70,6 +73,9 @@ export function useAuth() {
         membershipExpiresAt: res.data.user.membershipExpiresAt,
         passportPhotoUrl: res.data.user.passportPhotoUrl,
         createdAt: res.data.user.createdAt,
+        forcePasswordChange: res.data.user.forcePasswordChange,
+        annualDevelopmentalFeePaid: res.data.user.annualDevelopmentalFeePaid,
+        annualDuePaid: res.data.user.annualDuePaid,
       };
       localStorage.setItem("gkac_user", JSON.stringify(user));
       setState((prev) => ({ ...prev, user, token, loading: false }));
@@ -119,6 +125,9 @@ export function useAuth() {
         membershipExpiresAt: res.data.user.membershipExpiresAt,
         passportPhotoUrl: res.data.user.passportPhotoUrl,
         createdAt: res.data.user.createdAt,
+        forcePasswordChange: res.data.user.forcePasswordChange,
+        annualDevelopmentalFeePaid: res.data.user.annualDevelopmentalFeePaid,
+        annualDuePaid: res.data.user.annualDuePaid,
       };
       localStorage.setItem("gkac_token", res.data.token);
       localStorage.setItem("gkac_user", JSON.stringify(user));

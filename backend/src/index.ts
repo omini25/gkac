@@ -15,6 +15,7 @@ import { adminReportsRouter } from "./routes/admin-reports";
 import { adminSettingsRouter } from "./routes/admin-settings";
 import { adminProfileRouter } from "./routes/admin-profile";
 import { contactRouter } from "./routes/contact";
+import { duesRouter } from "./routes/dues";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
@@ -58,6 +59,7 @@ app.use("/api", adminReportsRouter);
 app.use("/api", adminSettingsRouter);
 app.use("/api", adminProfileRouter);
 app.use("/api", contactRouter);
+app.use("/api", duesRouter);
 
   // Example: items route with Redis caching
   app.get("/api/items", async (_req, res) => {

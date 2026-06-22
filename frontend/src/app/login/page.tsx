@@ -49,8 +49,13 @@ export default function LoginPage() {
     }
 
     if (res.user) {
-      showToast("Signed in successfully. Redirecting to dashboard…", "success");
-      setTimeout(() => { window.location.href = res.user!.isAdmin ? "/admin" : "/dashboard"; }, 1000);
+      if (res.user.forcePasswordChange) {
+        showToast("Please change your default password to continue.", "warn");
+        setTimeout(() => { window.location.href = "/change-password"; }, 1000);
+      } else {
+        showToast("Signed in successfully. Redirecting to dashboard…", "success");
+        setTimeout(() => { window.location.href = res.user!.isAdmin ? "/admin" : "/dashboard"; }, 1000);
+      }
     }
   }
 

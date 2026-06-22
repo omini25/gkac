@@ -29,19 +29,23 @@ export default function HomePage() {
           </div>
           <div className="hero-stats">
             <div className="hero-stat">
-              <div className="stat-num">12,000+</div>
-              <div className="stat-label">Active Members Worldwide</div>
+              <div className="stat-num">1,000</div>
+              <div className="stat-label">Membership Number</div>
             </div>
             <div className="hero-stat">
-              <div className="stat-num">50+</div>
+              <div className="stat-num">70</div>
+              <div className="stat-label">Worldwide Global Members</div>
+            </div>
+            <div className="hero-stat">
+              <div className="stat-num">2+</div>
               <div className="stat-label">Countries Represented</div>
             </div>
             <div className="hero-stat">
-              <div className="stat-num">45+</div>
+              <div className="stat-num">7+</div>
               <div className="stat-label">Years of Service</div>
             </div>
             <div className="hero-stat">
-              <div className="stat-num">500+</div>
+              <div className="stat-num">20+</div>
               <div className="stat-label">Annual Initiatives</div>
             </div>
           </div>
@@ -55,10 +59,7 @@ export default function HomePage() {
             <div className="section-divider" />
             <h2>Who We Are</h2>
             <p style={{ fontSize: "19px", maxWidth: "680px" }}>
-              The Global Kegite Archaverians Club (GKAC) is a premier fraternal
-              organisation that brings together distinguished professionals
-              committed to excellence, service, and the enduring bonds of
-              brotherhood.
+              A distinguished international socio-cultural organization of Kegites who, many years after graduation, remain committed to the ideals of brotherhood, integrity, leadership, and service.
             </p>
           </div>
           <div className="pillar-grid">
@@ -335,6 +336,40 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ═══════════════ ANNOUNCEMENTS ═══════════════ */}
+      <section className="page-section" aria-label="Announcements" style={{ background: "var(--surface)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
+        <div className="container">
+          <div className="section-header">
+            <div className="section-divider" />
+            <h2>Announcements</h2>
+            <p style={{ fontSize: "19px" }}>
+              Important updates from the Global Headquarters.
+            </p>
+          </div>
+          <div className="updates-grid">
+            <div className="update-card" style={{ borderLeft: "4px solid var(--accent)" }}>
+              <div className="update-date">June 2026</div>
+              <h4>4th Annual General Meeting</h4>
+              <p>Details coming soon. All members are encouraged to attend this important gathering. Date, venue, and agenda to be announced.</p>
+            </div>
+            <div className="update-card" style={{ borderLeft: "4px solid var(--warn)" }}>
+              <div className="update-date">June / July 2026</div>
+              <h4>Global Headquarters Executive Election</h4>
+              <p>
+                The election for the Global Headquarters Executive is scheduled for June or July 2026 (exact date TBD).
+                <strong> 12 contestants</strong> are vying for various positions.
+                Only members who have paid the <strong>Annual Developmental Fee</strong> for the current year are eligible to vote.
+              </p>
+            </div>
+            <div className="update-card">
+              <div className="update-date">May 2026</div>
+              <h4>New Chapter Inaugurated in Nairobi</h4>
+              <p>We are proud to welcome our newest chapter in Nairobi, Kenya — expanding our footprint across the African continent.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ═══════════════ LATEST UPDATES ═══════════════ */}
       <section className="page-section lg" aria-label="Latest updates">
         <div className="container">
@@ -352,14 +387,14 @@ export default function HomePage() {
               <p>Join us for the 45th Annual General Conference. Registration opens July 2026. Venue and programme details to be announced.</p>
             </div>
             <div className="update-card">
-              <div className="update-date">May 2026</div>
-              <h4>New Chapter Inaugurated in Nairobi</h4>
-              <p>We are proud to welcome our newest chapter in Nairobi, Kenya — expanding our footprint across the African continent.</p>
-            </div>
-            <div className="update-card">
               <div className="update-date">April 2026</div>
               <h4>2026 Leadership Elections — Results Announced</h4>
               <p>The National Executive Council election results have been certified. View the full list of elected officers on our leadership page.</p>
+            </div>
+            <div className="update-card">
+              <div className="update-date">March 2026</div>
+              <h4>Membership Portal Upgrade</h4>
+              <p>We&apos;ve launched a new digital membership experience including online dues payment, election voting, and a member resource library.</p>
             </div>
           </div>
         </div>

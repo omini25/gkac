@@ -184,7 +184,8 @@ authRouter.post("/auth/login", async (req: Request, res: Response) => {
       `SELECT id, first_name, last_name, email, phone, password_hash,
               membership_category_name, membership_code, application_status,
               is_verified, is_admin, membership_expires_at,
-              passport_photo_url, created_at
+              passport_photo_url, created_at, force_password_change,
+              annual_developmental_fee_paid, annual_due_paid
        FROM users WHERE email = $1`,
       [email.toLowerCase().trim()]
     );
@@ -202,7 +203,9 @@ authRouter.post("/auth/login", async (req: Request, res: Response) => {
     const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
 
     return res.json({
-      message: "Signed in successfully.",
+      message: user.force_password_change
+        ? "Please change your password before continuing."
+        : "Signed in successfully.",
       user: {
         id: user.id,
         firstName: user.first_name,
@@ -217,6 +220,9 @@ authRouter.post("/auth/login", async (req: Request, res: Response) => {
         membershipExpiresAt: user.membership_expires_at,
         passportPhotoUrl: user.passport_photo_url,
         createdAt: user.created_at,
+        forcePasswordChange: user.force_password_change,
+        annualDevelopmentalFeePaid: user.annual_developmental_fee_paid,
+        annualDuePaid: user.annual_due_paid,
       },
       token,
     });
@@ -319,6 +325,65 @@ authRouter.post("/auth/reset-password", async (req: Request, res: Response) => {
   }
 });
 
+// ─── POST /api/auth/change-password ────────────────────────────────────────
+// Used when force_password_change is TRUE (first login)
+authRouter.post("/auth/change-password", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Authentication required." });
+    }
+
+    const token = authHeader.slice(7);
+    let decoded: { userId: string; email: string };
+    try {
+      decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string };
+    } catch {
+      return res.status(401).json({ error: "Invalid or expired token." });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Current password and new password are required." });
+    }
+    if (newPassword.length < 8 || !/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      return res.status(400).json({ error: "New password must be at least 8 characters with a number and a letter." });
+    }
+
+    const db = getDbPool();
+    const userResult = await db.query(
+      "SELECT id, password_hash, force_password_change FROM users WHERE id = $1",
+      [decoded.userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    const user = userResult.rows[0];
+
+    // Verify current password
+    const valid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!valid) {
+      return res.status(400).json({ error: "Current password is incorrect." });
+    }
+
+    // Hash new password
+    const newHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+    // Update password and clear force_password_change flag
+    await db.query(
+      "UPDATE users SET password_hash = $1, force_password_change = FALSE WHERE id = $2",
+      [newHash, decoded.userId]
+    );
+
+    return res.json({ message: "Password changed successfully. You may now continue to your dashboard." });
+  } catch (err) {
+    console.error("Change password error:", err);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+});
+
 // ─── GET /api/auth/me — Get current authenticated user ────────────────────
 authRouter.get("/auth/me", async (req: Request, res: Response) => {
   try {
@@ -340,7 +405,8 @@ authRouter.get("/auth/me", async (req: Request, res: Response) => {
       `SELECT id, first_name, last_name, email, phone,
               membership_category_name, membership_code, application_status,
               is_verified, is_admin, membership_expires_at,
-              passport_photo_url, created_at
+              passport_photo_url, created_at, force_password_change,
+              annual_developmental_fee_paid, annual_due_paid
        FROM users WHERE id = $1`,
       [decoded.userId]
     );
@@ -365,6 +431,9 @@ authRouter.get("/auth/me", async (req: Request, res: Response) => {
         membershipExpiresAt: u.membership_expires_at,
         passportPhotoUrl: u.passport_photo_url,
         createdAt: u.created_at,
+        forcePasswordChange: u.force_password_change,
+        annualDevelopmentalFeePaid: u.annual_developmental_fee_paid,
+        annualDuePaid: u.annual_due_paid,
       },
     });
   } catch (err) {

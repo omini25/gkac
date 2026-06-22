@@ -89,7 +89,7 @@ export default function AdminMembersPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState<Record<string, string>>({
     firstName: "", lastName: "", email: "", phone: "", password: "",
-    gender: "", stateOfOrigin: "", lga: "", category: "Full Member",
+    gender: "", stateOfOrigin: "", lga: "", category: "Member",
   });
   const [adding, setAdding] = useState(false);
 
@@ -186,7 +186,7 @@ export default function AdminMembersPage() {
 
   // ─── Add Member ─────────────────────────────────────────────────────────
   function openAdd() {
-    setAddForm({ firstName: "", lastName: "", email: "", phone: "", password: "", gender: "", stateOfOrigin: "", lga: "", category: "Full Member" });
+    setAddForm({ firstName: "", lastName: "", email: "", phone: "", password: "", gender: "", stateOfOrigin: "", lga: "", category: "Member" });
     setShowAdd(true);
   }
 
@@ -418,11 +418,7 @@ export default function AdminMembersPage() {
           </select>
           <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)}>
             <option value="all">All Categories</option>
-            <option value="Fellow">Fellow</option>
-            <option value="Full Member">Full Member</option>
-            <option value="Associate">Associate</option>
-            <option value="Graduate">Graduate</option>
-            <option value="Student">Student</option>
+            <option value="Member">Member</option>
           </select>
         </div>
 
@@ -688,11 +684,7 @@ export default function AdminMembersPage() {
                   value={editForm.category || ""}
                   onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                 >
-                  <option value="Fellow">Fellow</option>
-                  <option value="Full Member">Full Member</option>
-                  <option value="Associate">Associate</option>
-                  <option value="Graduate">Graduate</option>
-                  <option value="Student">Student</option>
+                  <option value="Member">Member</option>
                 </select>
               </div>
               <div className="form-group">
@@ -753,11 +745,7 @@ export default function AdminMembersPage() {
                   <label>Category</label>
                   <select value={addForm.category}
                     onChange={(e) => setAddForm({ ...addForm, category: e.target.value })}>
-                    <option value="Fellow">Fellow</option>
-                    <option value="Full Member">Full Member</option>
-                    <option value="Associate">Associate</option>
-                    <option value="Graduate">Graduate</option>
-                    <option value="Student">Student</option>
+                    <option value="Member">Member</option>
                   </select>
                 </div>
                 <div className="form-group">

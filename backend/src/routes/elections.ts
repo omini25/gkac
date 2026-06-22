@@ -673,6 +673,112 @@ electionsRouter.get("/elections/:id/has-voted", async (req: Request, res: Respon
 });
 
 // ============================================================================
+// NOMINATION / EXPRESSION OF INTEREST (Public)
+// ============================================================================
+
+// ─── POST /api/elections/nominate ─────────────────────────────────────────
+electionsRouter.post("/elections/nominate", async (req: Request, res: Response) => {
+  const auth = authenticate(req, res);
+  if (!auth) return;
+
+  try {
+    const { formType, position, statement } = req.body;
+    if (!formType || !position) {
+      return res.status(400).json({ error: "Form type and position are required." });
+    }
+
+    const db = getDbPool();
+
+    // Verify user is an approved member
+    const userResult = await db.query(
+      "SELECT id, first_name, last_name, membership_code, application_status FROM users WHERE id = $1",
+      [auth.userId]
+    );
+    if (userResult.rows.length === 0 || userResult.rows[0].application_status !== "approved") {
+      return res.status(403).json({ error: "Only approved members can submit nominations." });
+    }
+
+    const user = userResult.rows[0];
+
+    // Find the active election (2026/2028)
+    const electionResult = await db.query(
+      "SELECT id, title FROM elections WHERE status IN ('upcoming', 'draft', 'active') ORDER BY created_at DESC LIMIT 1"
+    );
+    if (electionResult.rows.length === 0) {
+      // Auto-create an election if none exists
+      return res.status(400).json({ error: "No active election found. Please contact the administrator." });
+    }
+
+    const election = electionResult.rows[0];
+
+    // Map position to a position title
+    const positionTitles: Record<string, string> = {
+      president: "President",
+      "vice-president": "Vice President",
+      "general-secretary": "General Secretary",
+      "assistant-secretary": "Assistant Secretary",
+      treasurer: "Treasurer",
+      "financial-secretary": "Financial Secretary",
+      "public-relations-officer": "Public Relations Officer (PRO)",
+      "welfare-officer": "Welfare Officer",
+      auditor: "Auditor",
+    };
+
+    const positionTitle = positionTitles[position];
+    if (!positionTitle) {
+      return res.status(400).json({ error: "Invalid position selected." });
+    }
+
+    // Find or create the position in the election
+    let posResult = await db.query(
+      "SELECT id FROM election_positions WHERE election_id = $1 AND title = $2",
+      [election.id, positionTitle]
+    );
+
+    let positionId: string;
+    if (posResult.rows.length === 0) {
+      // Create the position
+      const newPos = await db.query(
+        "INSERT INTO election_positions (election_id, title, max_candidates, sort_order) VALUES ($1, $2, 1, 0) RETURNING id",
+        [election.id, positionTitle]
+      );
+      positionId = newPos.rows[0].id;
+    } else {
+      positionId = posResult.rows[0].id;
+    }
+
+    // Check if already declared
+    const existingDecl = await db.query(
+      "SELECT id, status FROM election_declarations WHERE position_id = $1 AND user_id = $2",
+      [positionId, auth.userId]
+    );
+    if (existingDecl.rows.length > 0) {
+      return res.status(409).json({
+        error: `You have already submitted a ${existingDecl.rows[0].status} declaration for ${positionTitle}.`,
+        declaration: existingDecl.rows[0],
+      });
+    }
+
+    // Insert declaration
+    const declResult = await db.query(
+      `INSERT INTO election_declarations (election_id, position_id, user_id, statement)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [election.id, positionId, auth.userId, statement?.trim() || null]
+    );
+
+    console.log(`[nomination] ${user.first_name} ${user.last_name} (${user.membership_code}) submitted ${formType} for ${positionTitle}`);
+
+    return res.status(201).json({
+      message: `${formType === "expression" ? "Expression of Interest" : "Nomination"} submitted successfully for ${positionTitle}.`,
+      declaration: declResult.rows[0],
+    });
+  } catch (err) {
+    console.error("Error submitting nomination:", err);
+    return res.status(500).json({ error: "Failed to submit nomination." });
+  }
+});
+
+// ============================================================================
 // RESULTS
 // ============================================================================
 

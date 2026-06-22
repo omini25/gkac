@@ -49,11 +49,7 @@ CREATE TRIGGER membership_categories_updated_at
 
 -- Seed default categories
 INSERT INTO membership_categories (name, description, fee_kobo, min_experience_years, sort_order) VALUES
-  ('Fellow', '15+ years distinguished practice', 5000000, 15, 1),
-  ('Full Member', '5+ years certified', 3000000, 5, 2),
-  ('Associate', '2+ years post-qualification', 2000000, 2, 3),
-  ('Graduate', 'Recent graduate (within 3 years)', 1000000, 0, 4),
-  ('Student', 'Currently enrolled', 500000, 0, 5)
+  ('Member', 'Standard membership — one-time registration fee of ₦10,000', 1000000, 0, 1)
 ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================

@@ -92,6 +92,9 @@ export interface LoginResult {
     membershipExpiresAt: string;
     passportPhotoUrl: string | null;
     createdAt: string | null;
+    forcePasswordChange: boolean;
+    annualDevelopmentalFeePaid: boolean;
+    annualDuePaid: boolean;
   };
   token: string;
 }
@@ -196,6 +199,19 @@ export interface EventItem {
   badge_label: string | null; badge_class: string | null;
   max_attendees: number | null; status: string; image_url: string | null;
   created_at: string;
+}
+
+export interface DuesMember {
+  id: string;
+  firstName: string;
+  lastName: string;
+  membershipCode: string;
+  membershipCategory: string;
+  annualDuePaid: boolean;
+  annualDueYear: number | null;
+  annualDevelopmentalFeePaid: boolean;
+  annualDevelopmentalFeeYear: number | null;
+  developmentalLevyAmount: number | null;
 }
 
 export interface LeaderItem {
@@ -361,6 +377,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ token, password }),
     }),
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ message: string }>("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+
+  // Dues Directory
+  getDuesDirectory: () =>
+    request<{ members: DuesMember[] }>("/dues-directory"),
 
   // Content
   getContent: <T>(type: ContentType, all?: boolean) =>
