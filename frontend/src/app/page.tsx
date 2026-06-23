@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AnnouncementsSection from "./components/AnnouncementsSection";
 
 export default function HomePage() {
   return (
@@ -336,69 +337,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══════════════ ANNOUNCEMENTS ═══════════════ */}
-      <section className="page-section" aria-label="Announcements" style={{ background: "var(--surface)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
-        <div className="container">
-          <div className="section-header">
-            <div className="section-divider" />
-            <h2>Announcements</h2>
-            <p style={{ fontSize: "19px" }}>
-              Important updates from the Global Headquarters.
-            </p>
-          </div>
-          <div className="updates-grid">
-            <div className="update-card" style={{ borderLeft: "4px solid var(--accent)" }}>
-              <div className="update-date">June 2026</div>
-              <h4>4th Annual General Meeting</h4>
-              <p>Details coming soon. All members are encouraged to attend this important gathering. Date, venue, and agenda to be announced.</p>
-            </div>
-            <div className="update-card" style={{ borderLeft: "4px solid var(--warn)" }}>
-              <div className="update-date">June / July 2026</div>
-              <h4>Global Headquarters Executive Election</h4>
-              <p>
-                The election for the Global Headquarters Executive is scheduled for June or July 2026 (exact date TBD).
-                <strong> 12 contestants</strong> are vying for various positions.
-                Only members who have paid the <strong>Annual Developmental Fee</strong> for the current year are eligible to vote.
-              </p>
-            </div>
-            <div className="update-card">
-              <div className="update-date">May 2026</div>
-              <h4>New Chapter Inaugurated in Nairobi</h4>
-              <p>We are proud to welcome our newest chapter in Nairobi, Kenya — expanding our footprint across the African continent.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════ LATEST UPDATES ═══════════════ */}
-      <section className="page-section lg" aria-label="Latest updates">
-        <div className="container">
-          <div className="section-header">
-            <div className="section-divider" />
-            <h2>Latest Updates</h2>
-            <p style={{ fontSize: "19px" }}>
-              Recent news and announcements from across the organisation.
-            </p>
-          </div>
-          <div className="updates-grid">
-            <div className="update-card">
-              <div className="update-date">June 2026</div>
-              <h4>Annual General Conference — Save the Date</h4>
-              <p>Join us for the 45th Annual General Conference. Registration opens July 2026. Venue and programme details to be announced.</p>
-            </div>
-            <div className="update-card">
-              <div className="update-date">April 2026</div>
-              <h4>2026 Leadership Elections — Results Announced</h4>
-              <p>The National Executive Council election results have been certified. View the full list of elected officers on our leadership page.</p>
-            </div>
-            <div className="update-card">
-              <div className="update-date">March 2026</div>
-              <h4>Membership Portal Upgrade</h4>
-              <p>We&apos;ve launched a new digital membership experience including online dues payment, election voting, and a member resource library.</p>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* ═══════════════ ANNOUNCEMENTS (dynamic — managed by admin) ═══════════════ */}
+      <AnnouncementsSection />
 
       {/* ═══════════════ CTA BANNER ═══════════════ */}
       <section className="page-section section-accent-bottom cta-banner" aria-label="Join us" style={{ background: "var(--green-dark)", padding: "var(--space-8) 0" }}>

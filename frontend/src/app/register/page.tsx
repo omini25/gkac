@@ -181,7 +181,11 @@ export default function RegisterPage() {
 
   useEffect(() => {
     api.getCategories().then((res) => {
-      if (res.data) setCategories(res.data.categories);
+      if (res.data?.categories?.length) {
+        setCategories(res.data.categories);
+        // Auto-select the only available category
+        setForm((prev) => ({ ...prev, categoryId: res.data.categories[0].id }));
+      }
     });
   }, []);
 
@@ -217,7 +221,7 @@ export default function RegisterPage() {
     if (!form.password || form.password.length < 8 || !/[a-zA-Z]/.test(form.password) || !/[0-9]/.test(form.password))
       e.password = "Min 8 chars with a letter and a number.";
     if (form.password !== form.confirmPassword) e.confirmPassword = "Passwords do not match.";
-    if (!form.categoryId) e.categoryId = "Select a membership category.";
+    // category is auto-selected
     if (form.hasNIN && (!form.nin || !/^\d{11}$/.test(form.nin)))
       e.nin = "Enter a valid 11-digit NIN.";
     setErrors(e);
@@ -536,14 +540,10 @@ export default function RegisterPage() {
               <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "18px 0" }} />
 
               <div className="form-group">
-                <label htmlFor="regCategory">Membership Category *</label>
-                <select id="regCategory" required value={form.categoryId} onChange={(e) => updateField("categoryId", e.target.value)}>
-                  <option value="">Select your category…</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name} — {c.description} (₦{(c.fee_kobo / 100).toLocaleString()})</option>
-                  ))}
-                </select>
-                <span className={`form-error${errors.categoryId ? " visible" : ""}`}>{errors.categoryId}</span>
+                <label>Membership Category</label>
+                <div style={{ padding: "12px 14px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--muted)", fontSize: 15 }}>
+                  {selectedCategory ? `${selectedCategory.name} — ₦${(selectedCategory.fee_kobo / 100).toLocaleString()}` : "Member"}
+                </div>
               </div>
 
               <div className="form-group">

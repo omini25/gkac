@@ -38,14 +38,6 @@ export default function AdminSettingsPage() {
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Category modals
-  const [showCatModal, setShowCatModal] = useState(false);
-  const [catEdit, setCatEdit] = useState<Category | null>(null);
-  const [catForm, setCatForm] = useState({ name: "", description: "", fee_kobo: "", min_experience_years: "", sort_order: "" });
-  const [catSaving, setCatSaving] = useState(false);
-  const [showCatDelete, setShowCatDelete] = useState(false);
-  const [catDelete, setCatDelete] = useState<Category | null>(null);
-
   // Template modals
   const [showTmplModal, setShowTmplModal] = useState(false);
   const [tmplEdit, setTmplEdit] = useState<EmailTemplate | null>(null);
@@ -82,61 +74,6 @@ export default function AdminSettingsPage() {
     if (adminRes.error) showToast(adminRes.error, "error");
     else if (adminRes.data) setAdmins(adminRes.data.admins);
     setLoading(false);
-  }
-
-  // ═══ Categories ═══════════════════════════════════════════════════════════
-
-  function openNewCat() {
-    setCatEdit(null);
-    setCatForm({ name: "", description: "", fee_kobo: "", min_experience_years: "", sort_order: String(categories.length + 1) });
-    setShowCatModal(true);
-  }
-
-  function openEditCat(c: Category) {
-    setCatEdit(c);
-    setCatForm({
-      name: c.name,
-      description: c.description || "",
-      fee_kobo: String(c.fee_kobo),
-      min_experience_years: c.min_experience_years != null ? String(c.min_experience_years) : "",
-      sort_order: String(c.sort_order),
-    });
-    setShowCatModal(true);
-  }
-
-  async function saveCategory() {
-    if (!catForm.name || !catForm.fee_kobo) return;
-    setCatSaving(true);
-    const payload = {
-      name: catForm.name,
-      description: catForm.description || undefined,
-      fee_kobo: parseInt(catForm.fee_kobo, 10),
-      min_experience_years: catForm.min_experience_years ? parseInt(catForm.min_experience_years, 10) : undefined,
-      sort_order: catForm.sort_order ? parseInt(catForm.sort_order, 10) : undefined,
-    };
-    const res = catEdit
-      ? await api.updateCategory(catEdit.id, payload)
-      : await api.createCategory(payload);
-    setCatSaving(false);
-    if (res.error) { showToast(res.error, "error"); return; }
-    showToast(catEdit ? "Category updated." : "Category created.", "success");
-    setShowCatModal(false);
-    loadAll();
-  }
-
-  function openDeleteCat(c: Category) {
-    setCatDelete(c);
-    setShowCatDelete(true);
-  }
-
-  async function confirmDeleteCat() {
-    if (!catDelete) return;
-    const res = await api.deleteCategory(catDelete.id);
-    if (res.error) { showToast(res.error, "error"); return; }
-    showToast(res.data?.message || "Category deactivated.", "success");
-    setShowCatDelete(false);
-    setCatDelete(null);
-    loadAll();
   }
 
   // ═══ Email Templates ══════════════════════════════════════════════════════
@@ -231,11 +168,10 @@ export default function AdminSettingsPage() {
 
   return (
     <>
-      {/* ═══ Membership Categories & Fees ════════════════════════════════════ */}
+      {/* ═══ Membership Category ════════════════════════════════════════════ */}
       <div className="card">
         <div className="card-header">
-          <h3>Membership Categories &amp; Fees</h3>
-          <button className="btn btn-accent btn-sm" onClick={openNewCat}>+ Add Category</button>
+          <h3>Membership Category</h3>
         </div>
         <div style={{ overflowX: "auto" }}>
           <table className="data-table">
@@ -244,34 +180,17 @@ export default function AdminSettingsPage() {
                 <th>Category</th>
                 <th>Annual Dues</th>
                 <th>Description</th>
-                <th>Min Experience</th>
-                <th>Order</th>
-                <th>Status</th>
-                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {categories.length === 0 ? (
-                <tr><td colSpan={7} style={{ textAlign: "center", padding: 16, color: "var(--muted)" }}>No categories yet.</td></tr>
+                <tr><td colSpan={3} style={{ textAlign: "center", padding: 16, color: "var(--muted)" }}>No category configured.</td></tr>
               ) : (
-                categories.map((c) => (
+                categories.filter((c) => c.is_active).map((c) => (
                   <tr key={c.id}>
                     <td>{c.name}</td>
                     <td>{fmtKobo(c.fee_kobo)}</td>
                     <td style={{ color: "var(--muted)", fontSize: 12 }}>{c.description || "—"}</td>
-                    <td>{c.min_experience_years != null ? `${c.min_experience_years}+ yrs` : "—"}</td>
-                    <td>{c.sort_order}</td>
-                    <td>
-                      <span className={c.is_active ? "badge badge-active" : "badge badge-expired"}>
-                        {c.is_active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="actions">
-                      <button className="btn btn-outline btn-xs" onClick={() => openEditCat(c)}>Edit</button>
-                      {c.is_active && (
-                        <button className="btn btn-danger btn-xs" onClick={() => openDeleteCat(c)}>Deactivate</button>
-                      )}
-                    </td>
                   </tr>
                 ))
               )}
@@ -364,58 +283,6 @@ export default function AdminSettingsPage() {
           </table>
         </div>
       </div>
-
-      {/* ─── Category Modal (Add/Edit) ─────────────────────────────────── */}
-      {showCatModal && (
-        <div className="modal-overlay open" onClick={() => setShowCatModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
-            <button className="modal-close" onClick={() => setShowCatModal(false)}>✕</button>
-            <h3>{catEdit ? "Edit Category" : "Add Category"}</h3>
-            <div className="form-group">
-              <label>Category Name *</label>
-              <input value={catForm.name} onChange={(e) => setCatForm({ ...catForm, name: e.target.value })} placeholder="e.g. Fellow" />
-            </div>
-            <div className="form-group">
-              <label>Description</label>
-              <input value={catForm.description} onChange={(e) => setCatForm({ ...catForm, description: e.target.value })} placeholder="e.g. 15+ years distinguished practice" />
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div className="form-group">
-                <label>Annual Dues (kobo) *</label>
-                <input type="number" value={catForm.fee_kobo} onChange={(e) => setCatForm({ ...catForm, fee_kobo: e.target.value })} placeholder="e.g. 3500000" />
-              </div>
-              <div className="form-group">
-                <label>Min Experience (years)</label>
-                <input type="number" value={catForm.min_experience_years} onChange={(e) => setCatForm({ ...catForm, min_experience_years: e.target.value })} placeholder="e.g. 5" />
-              </div>
-            </div>
-            <div className="form-group">
-              <label>Sort Order</label>
-              <input type="number" value={catForm.sort_order} onChange={(e) => setCatForm({ ...catForm, sort_order: e.target.value })} />
-            </div>
-            <button className="btn btn-accent" style={{ width: "100%" }} disabled={catSaving || !catForm.name || !catForm.fee_kobo} onClick={saveCategory}>
-              {catSaving ? "Saving…" : catEdit ? "Save Changes" : "Create Category"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Category Delete Confirmation ──────────────────────────────── */}
-      {showCatDelete && catDelete && (
-        <div className="modal-overlay open" onClick={() => setShowCatDelete(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setShowCatDelete(false)}>✕</button>
-            <h3>Deactivate Category</h3>
-            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 14 }}>
-              Are you sure you want to deactivate <strong>{catDelete.name}</strong>?
-            </p>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => { setShowCatDelete(false); setCatDelete(null); }}>Cancel</button>
-              <button className="btn btn-danger" style={{ flex: 1 }} onClick={confirmDeleteCat}>Deactivate</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ─── Template Modal (Add/Edit) ────────────────────────────────── */}
       {showTmplModal && (

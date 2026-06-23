@@ -13,6 +13,25 @@ export default function EventDetailPage() {
 
   useEffect(() => {
     if (!id) return;
+
+    // Election events have a prefix "election-" — fetch them from the elections endpoint
+    if (id.startsWith("election-")) {
+      api.getElectionEvents().then((res) => {
+        if (res.data) {
+          const found = res.data.events.find((e: any) => e.id === id);
+          if (found) {
+            setEvent(found as EventItem);
+          } else {
+            setError("Not found.");
+          }
+        } else {
+          setError("Not found.");
+        }
+        setLoading(false);
+      });
+      return;
+    }
+
     api.getContentItem<EventItem>("events", id).then((res) => {
       if (res.error) {
         setError(res.error);

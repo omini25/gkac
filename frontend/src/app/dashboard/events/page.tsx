@@ -9,8 +9,16 @@ export default function EventsPage() {
   const [rsvpModal, setRsvpModal] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getContent<EventItem>("events").then((res) => {
-      if (res.data) setEvents(res.data.items);
+    Promise.all([
+      api.getContent<EventItem>("events"),
+      api.getElectionEvents(),
+    ]).then(([eventsRes, electionRes]) => {
+      const merged = [
+        ...(eventsRes.data?.items || []),
+        ...(electionRes.data?.events || []),
+      ];
+      merged.sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
+      setEvents(merged);
       setLoading(false);
     });
   }, []);

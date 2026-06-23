@@ -50,6 +50,8 @@ interface Stats {
   collectionRate: number;
   totalRegistrations: number;
   totalRenewals: number;
+  totalAnnualDues?: number;
+  totalDevFees?: number;
   totalPaymentsThisYear: number;
 }
 
@@ -76,7 +78,7 @@ export default function AdminPaymentsPage() {
     totalCollected: 0, renewalsDue: 0, pendingTotal: 0, pendingCount: 0,
     awaitingCount: 0, totalConfirmed: 0, lifetimeCollected: 0,
     upcomingRenewals: 0, collectionRate: 0, totalRegistrations: 0,
-    totalRenewals: 0, totalPaymentsThisYear: 0,
+    totalRenewals: 0, totalAnnualDues: 0, totalDevFees: 0, totalPaymentsThisYear: 0,
   });
 
   function showToast(msg: string, type: string) {
@@ -192,6 +194,16 @@ export default function AdminPaymentsPage() {
     return `₦${(n / 100).toLocaleString()}`;
   }
 
+  function fmtPaymentType(type: string) {
+    const labels: Record<string, string> = {
+      registration: "Registration",
+      renewal: "Renewal",
+      annual_due: "Annual Due",
+      annual_developmental_fee: "Annual Dev. Fee",
+    };
+    return labels[type] || type;
+  }
+
   function statusBadge(status: string) {
     const cls =
       status === "confirmed"
@@ -225,10 +237,19 @@ export default function AdminPaymentsPage() {
         </div>
         <div className="stat-card">
           <div className="stat-value" style={{ color: "var(--accent)" }}>{stats.totalRegistrations}</div>
-          <div className="stat-label">New Registrations</div>
-          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-            Renewals: {stats.totalRenewals}
-          </div>
+          <div className="stat-label">Registrations</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value" style={{ color: "var(--accent)" }}>{stats.totalRenewals}</div>
+          <div className="stat-label">Renewals</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value" style={{ color: "var(--accent)" }}>{stats.totalAnnualDues || 0}</div>
+          <div className="stat-label">Annual Dues</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value" style={{ color: "var(--accent)" }}>{stats.totalDevFees || 0}</div>
+          <div className="stat-label">Dev. Fees</div>
         </div>
         <div className="stat-card">
           <div className="stat-value" style={{ color: stats.pendingCount > 0 ? "var(--warn)" : "var(--muted)" }}>
@@ -280,6 +301,8 @@ export default function AdminPaymentsPage() {
           <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
             <option value="all">All Types</option>
             <option value="registration">Registration</option>
+            <option value="annual_due">Annual Due</option>
+            <option value="annual_developmental_fee">Annual Dev. Fee</option>
             <option value="renewal">Renewal</option>
           </select>
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
@@ -319,7 +342,7 @@ export default function AdminPaymentsPage() {
                       <span style={{ fontSize: 11, color: "var(--muted)" }}>{p.member.membershipCode}</span>
                     </td>
                     <td>{fmtNaira(p.amountKobo)}</td>
-                    <td style={{ textTransform: "capitalize" }}>{p.paymentType}</td>
+                    <td>{fmtPaymentType(p.paymentType)}</td>
                     <td style={{ fontSize: 13, color: "var(--muted)" }}>{fmtDate(p.createdAt)}</td>
                     <td style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--muted)" }}>{p.reference}</td>
                     <td>{statusBadge(p.status)}</td>
@@ -551,7 +574,7 @@ export default function AdminPaymentsPage() {
             {/* Payment Details */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, fontSize: 13, marginBottom: 14 }}>
               <div><strong>Amount</strong><br /><span style={{ color: "var(--fg)" }}>{fmtNaira(reviewPayment.amountKobo)}</span></div>
-              <div><strong>Type</strong><br /><span style={{ textTransform: "capitalize", color: "var(--fg)" }}>{reviewPayment.paymentType}</span></div>
+              <div><strong>Type</strong><br /><span style={{ color: "var(--fg)" }}>{fmtPaymentType(reviewPayment.paymentType)}</span></div>
               <div><strong>Date</strong><br /><span style={{ color: "var(--fg)" }}>{fmtDate(reviewPayment.createdAt)}</span></div>
               <div><strong>Reference</strong><br /><span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg)" }}>{reviewPayment.reference}</span></div>
               <div style={{ gridColumn: "1 / -1" }}>

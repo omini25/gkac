@@ -34,6 +34,18 @@ export default function AdminElectionsPage() {
   const [declarations, setDeclarations] = useState<ElectionDeclaration[]>([]);
   const [declLoading, setDeclLoading] = useState(false);
 
+  // Add Declaration modal
+  const [showAddDecl, setShowAddDecl] = useState(false);
+  const [addDeclElectionId, setAddDeclElectionId] = useState<string | null>(null);
+  const [addDeclPositionId, setAddDeclPositionId] = useState("");
+  const [addDeclUserId, setAddDeclUserId] = useState("");
+  const [addDeclStatement, setAddDeclStatement] = useState("");
+  const [addDeclMemberSearch, setAddDeclMemberSearch] = useState("");
+  const [addDeclMembers, setAddDeclMembers] = useState<{ id: string; name: string; email: string; mno: string }[]>([]);
+  const [addDeclSaving, setAddDeclSaving] = useState(false);
+  // Positions for the current election (for the add declaration dropdown)
+  const [addDeclPositions, setAddDeclPositions] = useState<ElectionPosition[]>([]);
+
   // Results
   const [showResults, setShowResults] = useState<string | null>(null);
   const [results, setResults] = useState<ElectionResults | null>(null);
@@ -282,6 +294,90 @@ export default function AdminElectionsPage() {
     } else showToast(res.error || "Failed to reject", "error");
   }
 
+  // ─── Declaration Management ───────────────────────────────────────────────
+  function canEditDeclarations(election: Election | null): boolean {
+    if (!election) return false;
+    // Can edit if: draft/upcoming status, OR declaration_end is in the future or not set
+    if (election.status === "draft" || election.status === "upcoming") return true;
+    if (election.status === "active" || election.status === "closed") {
+      // Check if declaration_end is still in the future or not set
+      if (!election.declaration_end) return false;
+      return new Date(election.declaration_end) > new Date();
+    }
+    return false;
+  }
+
+  async function deleteDeclaration(id: string) {
+    if (!confirm("Delete this declaration? This will also remove the candidate if approved.")) return;
+    const res = await api.deleteDeclaration(id);
+    if (res.data) {
+      showToast("Declaration deleted", "success");
+      if (showDeclarations) openDeclarations(showDeclarations);
+    } else showToast(res.error || "Failed to delete", "error");
+  }
+
+  function openAddDecl(electionId: string, positions: ElectionPosition[]) {
+    setAddDeclElectionId(electionId);
+    setAddDeclPositions(positions);
+    setAddDeclPositionId(positions.length > 0 ? positions[0].id : "");
+    setAddDeclUserId("");
+    setAddDeclStatement("");
+    setAddDeclMemberSearch("");
+    setAddDeclMembers([]);
+    setShowAddDecl(true);
+  }
+
+  async function searchAddDeclMembers(query: string) {
+    setAddDeclMemberSearch(query);
+    setAddDeclUserId(""); // reset selection when searching again
+    if (query.length < 2) {
+      setAddDeclMembers([]);
+      return;
+    }
+    const res = await api.getMembers();
+    if (res.data) {
+      const all = res.data.members as any[];
+      const q = query.toLowerCase();
+      setAddDeclMembers(
+        all
+          .filter((m: any) =>
+            m.name?.toLowerCase().includes(q) ||
+            m.email?.toLowerCase().includes(q) ||
+            m.mno?.toLowerCase().includes(q)
+          )
+          .slice(0, 20)
+          .map((m: any) => ({
+            id: m.id,
+            name: m.name,
+            email: m.email,
+            mno: m.mno,
+          }))
+      );
+    }
+  }
+
+  async function saveAddDecl() {
+    if (!addDeclElectionId || !addDeclPositionId || !addDeclUserId) {
+      showToast("Select a member and position", "error");
+      return;
+    }
+    setAddDeclSaving(true);
+    const res = await api.adminDeclareInterest(
+      addDeclElectionId,
+      addDeclPositionId,
+      addDeclUserId,
+      addDeclStatement || undefined
+    );
+    setAddDeclSaving(false);
+    if (res.data) {
+      showToast(res.data.message || "Declaration created", "success");
+      setShowAddDecl(false);
+      if (showDeclarations) openDeclarations(showDeclarations);
+    } else {
+      showToast(res.error || "Failed to create declaration", "error");
+    }
+  }
+
   // ─── Results ─────────────────────────────────────────────────────────────
   async function openResults(electionId: string) {
     setShowResults(electionId);
@@ -391,11 +487,23 @@ export default function AdminElectionsPage() {
         </div>
 
         {/* Declaration Review Section */}
-        {showDeclarations && (
+        {showDeclarations && (() => {
+          const currentElection = elections.find((el) => el.id === showDeclarations) || null;
+          const canEdit = canEditDeclarations(currentElection);
+          return (
           <div className="card" style={{ marginTop: 20 }}>
             <div className="card-header">
               <h3>Declarations of Interest</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowDeclarations(null)}>✕ Close</button>
+              <div style={{ display: "flex", gap: 8 }}>
+                {canEdit && (
+                  <button className="btn btn-accent btn-sm" onClick={() => {
+                    api.getElection(showDeclarations).then((res) => {
+                      if (res.data) openAddDecl(showDeclarations, res.data.election.positions || []);
+                    });
+                  }}>+ Add Declaration</button>
+                )}
+                <button className="btn btn-ghost btn-sm" onClick={() => setShowDeclarations(null)}>✕ Close</button>
+              </div>
             </div>
             {declLoading ? (
               <p style={{ color: "var(--muted)", textAlign: "center", padding: 16 }}><span className="loader-dot" /></p>
@@ -433,6 +541,11 @@ export default function AdminElectionsPage() {
                             </>
                           )}
                           {d.status !== "pending" && <span style={{ fontSize: 12, color: "var(--muted)" }}>Reviewed</span>}
+                          {canEdit && (
+                            <button className="btn btn-danger btn-xs" onClick={() => deleteDeclaration(d.id)} title="Delete declaration">
+                              🗑
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -441,7 +554,8 @@ export default function AdminElectionsPage() {
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* ═══ LIVE RESULTS ═══ */}
@@ -769,6 +883,89 @@ export default function AdminElectionsPage() {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ADD DECLARATION MODAL ═══ */}
+      {showAddDecl && (
+        <div className="modal-overlay open" onClick={() => setShowAddDecl(false)}>
+          <div className="modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowAddDecl(false)}>✕</button>
+            <h3>Add Declaration of Interest</h3>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 14 }}>
+              Declare interest on behalf of a member. The declaration will be auto-approved.
+            </p>
+
+            <div className="form-group">
+              <label>Search Member *</label>
+              <input
+                type="text"
+                placeholder="Type at least 2 characters to search…"
+                value={addDeclMemberSearch}
+                onChange={(e) => searchAddDeclMembers(e.target.value)}
+              />
+              {addDeclMembers.length > 0 && (
+                <div style={{
+                  marginTop: 4, border: "1px solid var(--border)", borderRadius: "var(--radius-md)",
+                  maxHeight: 200, overflowY: "auto", background: "var(--bg)"
+                }}>
+                  {addDeclMembers.map((m) => (
+                    <div
+                      key={m.id}
+                      onClick={() => {
+                        setAddDeclUserId(m.id);
+                        setAddDeclMemberSearch(`${m.name} (${m.email})`);
+                        setAddDeclMembers([]);
+                      }}
+                      style={{
+                        padding: "8px 12px", cursor: "pointer", fontSize: 13,
+                        borderBottom: "1px solid var(--border)", background: addDeclUserId === m.id ? "var(--green-light)" : "transparent",
+                      }}
+                    >
+                      <strong>{m.name}</strong>
+                      <span style={{ color: "var(--muted)", marginLeft: 8 }}>{m.email}</span>
+                      <span style={{ color: "var(--muted)", marginLeft: 8, fontSize: 11 }}>{m.mno}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label>Position *</label>
+              <select value={addDeclPositionId} onChange={(e) => setAddDeclPositionId(e.target.value)}>
+                {addDeclPositions.length === 0 ? (
+                  <option value="">No positions available</option>
+                ) : (
+                  addDeclPositions.map((p) => (
+                    <option key={p.id} value={p.id}>{p.title}</option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Statement (optional)</label>
+              <textarea
+                rows={3}
+                value={addDeclStatement}
+                onChange={(e) => setAddDeclStatement(e.target.value)}
+                placeholder="Optional statement from the member…"
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className="btn btn-accent"
+                style={{ flex: 1 }}
+                disabled={addDeclSaving || !addDeclUserId || !addDeclPositionId}
+                onClick={saveAddDecl}
+              >
+                {addDeclSaving ? "Saving…" : "Add Declaration"}
+              </button>
+              <button className="btn btn-ghost" onClick={() => setShowAddDecl(false)}>Cancel</button>
+            </div>
           </div>
         </div>
       )}

@@ -42,19 +42,22 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const [newsRes, eventsRes, electionsRes] = await Promise.all([
+      const [newsRes, eventsRes, electionEventsRes, electionsRes] = await Promise.all([
         api.getContent<NewsItem>("news"),
         api.getContent<EventItem>("events"),
+        api.getElectionEvents(),
         api.getElections(),
       ]);
       if (newsRes.data) setNews(newsRes.data.items.slice(0, 3));
-      if (eventsRes.data) {
-        const upcoming = eventsRes.data.items
-          .filter((e) => new Date(e.event_date) >= new Date())
-          .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
-          .slice(0, 3);
-        setEvents(upcoming);
-      }
+      const allEvents = [
+        ...(eventsRes.data?.items || []),
+        ...(electionEventsRes.data?.events || []),
+      ];
+      const upcoming = allEvents
+        .filter((e: any) => new Date(e.event_date) >= new Date())
+        .sort((a: any, b: any) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
+        .slice(0, 3);
+      setEvents(upcoming);
       if (electionsRes.data) setElections(electionsRes.data.elections);
       setLoading(false);
     }

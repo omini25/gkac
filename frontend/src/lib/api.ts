@@ -593,6 +593,19 @@ export const api = {
       method: "PUT", body: JSON.stringify({ status: "rejected" }),
     }),
 
+  deleteDeclaration: (id: string) =>
+    request<{ message: string }>(`/elections/declarations/${id}`, {
+      method: "DELETE",
+    }),
+
+  adminDeclareInterest: (electionId: string, positionId: string, userId: string, statement?: string) =>
+    request<{ declaration: ElectionDeclaration; message: string }>(`/elections/${electionId}/declare-as-admin`, {
+      method: "POST", body: JSON.stringify({ positionId, userId, statement }),
+    }),
+
+  getElectionEvents: () =>
+    request<{ events: any[] }>("/elections/events"),
+
   // Candidates & Voting
   getCandidates: (electionId: string) =>
     request<{ candidates: ElectionCandidate[] }>(`/elections/${electionId}/candidates`),
@@ -698,21 +711,6 @@ export const api = {
   // ─── Admin - Settings ──────────────────────────────────────────────────────
   getAdminCategories: () =>
     request<{ categories: any[] }>("/admin/settings/categories"),
-
-  createCategory: (data: { name: string; description?: string; fee_kobo: number; min_experience_years?: number; sort_order?: number }) =>
-    request<{ category: any }>("/admin/settings/categories", {
-      method: "POST", body: JSON.stringify(data),
-    }),
-
-  updateCategory: (id: string, data: Record<string, unknown>) =>
-    request<{ category: any }>(`/admin/settings/categories/${id}`, {
-      method: "PUT", body: JSON.stringify(data),
-    }),
-
-  deleteCategory: (id: string) =>
-    request<{ message: string }>(`/admin/settings/categories/${id}`, {
-      method: "DELETE",
-    }),
 
   getEmailTemplates: () =>
     request<{ templates: any[] }>("/admin/settings/email-templates"),

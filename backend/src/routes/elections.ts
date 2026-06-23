@@ -611,6 +611,126 @@ electionsRouter.put("/elections/declarations/:id", async (req: Request, res: Res
   }
 });
 
+// ─── DELETE /api/elections/declarations/:id (admin) ───────────────────────
+electionsRouter.delete("/elections/declarations/:id", async (req: Request, res: Response) => {
+  const auth = authenticate(req, res);
+  if (!auth) return;
+  if (!(await requireAdmin(auth, res))) return;
+
+  try {
+    const { id } = req.params;
+    const db = getDbPool();
+
+    // Get the declaration
+    const declResult = await db.query(
+      "SELECT * FROM election_declarations WHERE id = $1",
+      [id]
+    );
+    if (declResult.rows.length === 0) {
+      return res.status(404).json({ error: "Declaration not found." });
+    }
+
+    const declaration = declResult.rows[0];
+
+    // Remove any associated candidate first
+    await db.query(
+      "DELETE FROM election_candidates WHERE declaration_id = $1",
+      [id]
+    );
+
+    // Delete the declaration
+    await db.query("DELETE FROM election_declarations WHERE id = $1", [id]);
+
+    return res.json({ message: "Declaration deleted." });
+  } catch (err) {
+    console.error("Error deleting declaration:", err);
+    return res.status(500).json({ error: "Failed to delete declaration." });
+  }
+});
+
+// ─── POST /api/elections/:id/declare-as-admin (admin) ────────────────────
+electionsRouter.post("/elections/:id/declare-as-admin", async (req: Request, res: Response) => {
+  const auth = authenticate(req, res);
+  if (!auth) return;
+  if (!(await requireAdmin(auth, res))) return;
+
+  try {
+    const db = getDbPool();
+    const { id } = req.params;
+    const { positionId, userId, statement } = req.body;
+
+    if (!positionId || !userId) {
+      return res.status(400).json({ error: "Position ID and User ID are required." });
+    }
+
+    // Verify the election exists
+    const electionResult = await db.query(
+      "SELECT id, status FROM elections WHERE id = $1",
+      [id]
+    );
+    if (electionResult.rows.length === 0) {
+      return res.status(404).json({ error: "Election not found." });
+    }
+
+    // Verify position belongs to this election
+    const posResult = await db.query(
+      "SELECT id FROM election_positions WHERE id = $1 AND election_id = $2",
+      [positionId, id]
+    );
+    if (posResult.rows.length === 0) {
+      return res.status(400).json({ error: "Position not found in this election." });
+    }
+
+    // Verify user exists
+    const userResult = await db.query(
+      "SELECT id, first_name, last_name FROM users WHERE id = $1",
+      [userId]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    // Check if already declared for this position
+    const existingResult = await db.query(
+      "SELECT id, status FROM election_declarations WHERE position_id = $1 AND user_id = $2",
+      [positionId, userId]
+    );
+    if (existingResult.rows.length > 0) {
+      return res.status(409).json({
+        error: "This member has already declared interest in this position.",
+        declaration: existingResult.rows[0],
+      });
+    }
+
+    // Auto-approve when admin declares on behalf of a member
+    const result = await db.query(
+      `INSERT INTO election_declarations (election_id, position_id, user_id, statement, status, reviewed_by, reviewed_at)
+       VALUES ($1, $2, $3, $4, 'approved', $5, NOW())
+       RETURNING *`,
+      [id, positionId, userId, statement?.trim() || null, auth.userId]
+    );
+
+    const declaration = result.rows[0];
+
+    // Auto-add as candidate
+    const maxSort = await db.query(
+      "SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort FROM election_candidates WHERE position_id = $1",
+      [positionId]
+    );
+
+    await db.query(
+      `INSERT INTO election_candidates (election_id, position_id, user_id, declaration_id, statement, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [id, positionId, userId, declaration.id, declaration.statement, maxSort.rows[0].next_sort]
+    );
+
+    return res.status(201).json({ declaration, message: "Declaration created and approved." });
+  } catch (err) {
+    console.error("Error creating declaration as admin:", err);
+    return res.status(500).json({ error: "Failed to create declaration." });
+  }
+});
+
 // ============================================================================
 // CANDIDATES (public view)
 // ============================================================================
@@ -982,5 +1102,76 @@ electionsRouter.get("/elections/:id/results", async (_req: Request, res: Respons
   } catch (err) {
     console.error("Error fetching results:", err);
     return res.status(500).json({ error: "Failed to fetch results." });
+  }
+});
+
+// ============================================================================
+// ELECTION EVENTS (election milestones shown as events)
+// ============================================================================
+
+// ─── GET /api/elections/events ───────────────────────────────────────────
+electionsRouter.get("/elections/events", async (_req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const result = await db.query(
+      `SELECT id, title, description,
+              declaration_start, declaration_end,
+              nomination_start, nomination_end,
+              eligible_voters_release_date,
+              screening_date,
+              qualified_candidates_release_date,
+              manifesto_date,
+              election_date,
+              swearing_in_date,
+              start_date, end_date,
+              status
+       FROM elections
+       WHERE status IN ('upcoming', 'active', 'draft')
+       ORDER BY COALESCE(election_date, start_date, declaration_start) ASC`
+    );
+
+    const events: any[] = [];
+
+    for (const el of result.rows) {
+      const milestones: { date: string | null; title: string; desc: string }[] = [
+        { date: el.declaration_start, title: `${el.title} — Declaration of Interest Opens`, desc: "Submission of declarations begins." },
+        { date: el.declaration_end, title: `${el.title} — Declaration of Interest Closes`, desc: "Deadline for declaration submissions." },
+        { date: el.nomination_start, title: `${el.title} — Nominations Open`, desc: "Nomination period begins." },
+        { date: el.nomination_end, title: `${el.title} — Nominations Close`, desc: "Deadline for nominations." },
+        { date: el.eligible_voters_release_date, title: `${el.title} — Eligible Voters List Published`, desc: "List of eligible voters is released." },
+        { date: el.screening_date, title: `${el.title} — Candidate Screening`, desc: "Screening of candidates takes place." },
+        { date: el.qualified_candidates_release_date, title: `${el.title} — Qualified Candidates Announced`, desc: "Final list of qualified candidates is published." },
+        { date: el.manifesto_date, title: `${el.title} — Manifesto Presentation`, desc: "Candidates present their manifestos." },
+        { date: el.election_date, title: `${el.title} — Election Day`, desc: "Voting takes place." },
+        { date: el.swearing_in_date, title: `${el.title} — Swearing-In Ceremony`, desc: "Swearing-in of elected officials." },
+        { date: el.start_date, title: `${el.title} — Election Period Starts`, desc: "The election period officially begins." },
+        { date: el.end_date, title: `${el.title} — Election Period Ends`, desc: "The election period officially ends." },
+      ];
+
+      for (const m of milestones) {
+        if (m.date) {
+          events.push({
+            id: `election-${el.id}-${m.title.replace(/\s+/g, "-").toLowerCase()}`,
+            title: m.title,
+            description: m.desc,
+            location: "Global Headquarters",
+            event_date: m.date,
+            event_time: null,
+            badge_label: el.status === "active" ? "Ongoing" : el.status === "upcoming" ? "Upcoming" : "Draft",
+            badge_class: "election",
+            status: "open",
+            image_url: null,
+            source: "election",
+            election_id: el.id,
+            created_at: el.created_at || new Date(),
+          });
+        }
+      }
+    }
+
+    return res.json({ events });
+  } catch (err) {
+    console.error("Error fetching election events:", err);
+    return res.status(500).json({ error: "Failed to fetch election events." });
   }
 });

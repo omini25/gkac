@@ -155,11 +155,11 @@ export default function ElectionsPage() {
             </p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <Link href="/dashboard/elections/expression-of-interest" className="btn btn-accent btn-sm">
+            {/* <Link href="/dashboard/elections/expression-of-interest" className="btn btn-accent btn-sm">
               📝 Expression of Interest
-            </Link>
+            </Link> */}
             <Link href="/dashboard/elections/nomination" className="btn btn-outline btn-sm">
-              📋 Nomination Form
+              📋 Election Forms
             </Link>
           </div>
         </div>

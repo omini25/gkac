@@ -84,9 +84,6 @@ export default function AdminMembersPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [rejecting, setRejecting] = useState(false);
 
-  // Categories
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
-
   // Edit modal
   const [showEdit, setShowEdit] = useState(false);
   const [editTarget, setEditTarget] = useState<Member | null>(null);
@@ -150,15 +147,7 @@ export default function AdminMembersPage() {
 
   useEffect(() => {
     loadMembers();
-    loadCategories();
   }, []);
-
-  async function loadCategories() {
-    const res = await api.getAdminCategories();
-    if (res.data?.categories) {
-      setCategories(res.data.categories);
-    }
-  }
 
   async function loadMembers() {
     setLoading(true);
@@ -359,14 +348,12 @@ export default function AdminMembersPage() {
   async function handleEdit() {
     if (!editTarget) return;
     setEditing(true);
-    const matchedCat = categories.find((c) => c.name === editForm.category);
     const res = await api.updateMember(editTarget.id, {
       firstName: editForm.firstName,
       lastName: editForm.lastName,
       email: editForm.email,
       phone: editForm.phone,
-      membershipCategoryId: matchedCat?.id || null,
-      membershipCategoryName: editForm.category,
+      membershipCategoryName: "Member",
       membershipCode: editForm.membershipCode || null,
     });
     setEditing(false);
@@ -535,13 +522,7 @@ export default function AdminMembersPage() {
           </select>
           <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)}>
             <option value="all">All Categories</option>
-            {categories.length > 0 ? (
-              categories.map((c) => (
-                <option key={c.id} value={c.name}>{c.name}</option>
-              ))
-            ) : (
-              <option value="Member">Member</option>
-            )}
+            <option value="Member">Member</option>
           </select>
         </div>
 
@@ -691,7 +672,7 @@ export default function AdminMembersPage() {
                     <tr key={p.id}>
                       <td style={{ fontSize: 12 }}>{new Date(p.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</td>
                       <td style={{ fontSize: 12 }}>₦{(p.amount_kobo / 100).toLocaleString()}</td>
-                      <td style={{ fontSize: 12 }}>{p.payment_type}</td>
+                      <td style={{ fontSize: 12 }}>{p.payment_type === "registration" ? "Registration" : p.payment_type === "annual_due" ? "Annual Due" : p.payment_type === "annual_developmental_fee" ? "Annual Dev. Fee" : p.payment_type === "renewal" ? "Renewal" : p.payment_type}</td>
                       <td><span className={`badge ${p.status === "confirmed" ? "badge-active" : "badge-pending"}`} style={{ fontSize: 10 }}>{p.status}</span></td>
                     </tr>
                   ))}
@@ -745,7 +726,7 @@ export default function AdminMembersPage() {
             <ul className="activity-list">
               <li><span className="activity-dot approval" /><div>Registered: {panel.createdAt ? new Date(panel.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}</div></li>
               {panelPayments.length > 0 && (
-                <li><span className="activity-dot payment" /><div>Last payment: ₦{(panelPayments[0].amount_kobo / 100).toLocaleString()} ({panelPayments[0].payment_type})</div></li>
+                <li><span className="activity-dot payment" /><div>Last payment: ₦{(panelPayments[0].amount_kobo / 100).toLocaleString()} ({panelPayments[0].payment_type === "registration" ? "Registration" : panelPayments[0].payment_type === "annual_due" ? "Annual Due" : panelPayments[0].payment_type === "annual_developmental_fee" ? "Annual Dev. Fee" : panelPayments[0].payment_type === "renewal" ? "Renewal" : panelPayments[0].payment_type})</div></li>
               )}
             </ul>
           </>
@@ -867,16 +848,10 @@ export default function AdminMembersPage() {
               <div className="form-group">
                 <label>Category</label>
                 <select
-                  value={editForm.category || ""}
-                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                  value="Member"
+                  disabled
                 >
-                  {categories.length === 0 ? (
-                    <option value="Member">Member</option>
-                  ) : (
-                    categories.map((c) => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))
-                  )}
+                  <option value="Member">Member</option>
                 </select>
               </div>
               <div className="form-group">
@@ -935,15 +910,8 @@ export default function AdminMembersPage() {
                 </div>
                 <div className="form-group">
                   <label>Category</label>
-                  <select value={addForm.category}
-                    onChange={(e) => setAddForm({ ...addForm, category: e.target.value })}>
-                    {categories.length === 0 ? (
-                      <option value="Member">Member</option>
-                    ) : (
-                      categories.map((c) => (
-                        <option key={c.id} value={c.name}>{c.name}</option>
-                      ))
-                    )}
+                  <select value="Member" disabled>
+                    <option value="Member">Member</option>
                   </select>
                 </div>
                 <div className="form-group">

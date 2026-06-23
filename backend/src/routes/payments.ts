@@ -413,7 +413,11 @@ paymentsRouter.get("/payments/admin/stats", async (_req: Request, res: Response)
          (SELECT COALESCE(COUNT(*), 0)::bigint FROM payments
           WHERE payment_type = 'registration' AND status = 'confirmed') AS total_registrations,
          (SELECT COALESCE(COUNT(*), 0)::bigint FROM payments
-          WHERE payment_type = 'renewal' AND status = 'confirmed') AS total_renewals
+          WHERE payment_type = 'renewal' AND status = 'confirmed') AS total_renewals,
+         (SELECT COALESCE(COUNT(*), 0)::bigint FROM payments
+          WHERE payment_type = 'annual_due' AND status = 'confirmed') AS total_annual_dues,
+         (SELECT COALESCE(COUNT(*), 0)::bigint FROM payments
+          WHERE payment_type = 'annual_developmental_fee' AND status = 'confirmed') AS total_dev_fees
       `,
       [yearStart, thirtyDaysFromNow, today, sixtyDaysFromNow]
     );
@@ -431,6 +435,8 @@ paymentsRouter.get("/payments/admin/stats", async (_req: Request, res: Response)
     const confirmed = parseInt(r.confirmed_payments, 10) || 0;
     const totalRegistrations = parseInt(r.total_registrations, 10) || 0;
     const totalRenewals = parseInt(r.total_renewals, 10) || 0;
+    const totalAnnualDues = parseInt(r.total_annual_dues, 10) || 0;
+    const totalDevFees = parseInt(r.total_dev_fees, 10) || 0;
     const collectionRate = totalPayments > 0 ? Math.round((confirmed / totalPayments) * 100) : 0;
 
     return res.json({
@@ -446,6 +452,8 @@ paymentsRouter.get("/payments/admin/stats", async (_req: Request, res: Response)
         collectionRate,
         totalRegistrations,
         totalRenewals,
+        totalAnnualDues,
+        totalDevFees,
         totalPaymentsThisYear: totalPayments,
       },
     });

@@ -26,6 +26,7 @@ function activityIcon(type: string) {
 
 export default function AdminOverviewPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [electionEvents, setElectionEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -35,11 +36,21 @@ export default function AdminOverviewPage() {
 
   async function loadDashboard() {
     setLoading(true);
-    const res = await api.getDashboard();
-    if (res.error) {
-      setError(res.error);
-    } else if (res.data) {
-      setData(res.data);
+    const [dashRes, eventsRes] = await Promise.all([
+      api.getDashboard(),
+      api.getElectionEvents(),
+    ]);
+    if (dashRes.error) {
+      setError(dashRes.error);
+    } else if (dashRes.data) {
+      setData(dashRes.data);
+    }
+    if (eventsRes.data) {
+      const upcoming = eventsRes.data.events
+        .filter((e: any) => new Date(e.event_date) >= new Date())
+        .sort((a: any, b: any) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
+        .slice(0, 6);
+      setElectionEvents(upcoming);
     }
     setLoading(false);
   }
@@ -160,6 +171,44 @@ export default function AdminOverviewPage() {
           )}
         </div>
       </div>
+
+      {/* Election Timeline Events */}
+      {electionEvents.length > 0 && (
+        <div className="card" style={{ marginTop: 20 }}>
+          <div className="card-header">
+            <h3>📅 Election Timeline</h3>
+            <Link href="/admin/elections" style={{ fontSize: 13 }}>Manage Elections →</Link>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {electionEvents.map((ev: any) => (
+              <div
+                key={ev.id}
+                style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "10px 14px",
+                  borderLeft: `4px solid ${ev.badge_label === "Ongoing" ? "var(--accent)" : ev.badge_label === "Upcoming" ? "var(--warn)" : "var(--border)"}`,
+                  borderRadius: "var(--radius-sm)", background: "var(--bg)",
+                }}
+              >
+                <div style={{ minWidth: 50, textAlign: "center" }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>
+                    {new Date(ev.event_date).getDate()}
+                  </div>
+                  <div style={{ fontSize: 9, textTransform: "uppercase", color: "var(--muted)" }}>
+                    {new Date(ev.event_date).toLocaleString("en", { month: "short" })}
+                  </div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{ev.title}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted)" }}>{ev.description}</div>
+                </div>
+                <span className={`badge ${ev.badge_label === "Ongoing" ? "badge-active" : ev.badge_label === "Upcoming" ? "badge-pending" : "badge-expired"}`}>
+                  {ev.badge_label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 }
