@@ -181,10 +181,11 @@ export default function RegisterPage() {
 
   useEffect(() => {
     api.getCategories().then((res) => {
-      if (res.data?.categories?.length) {
-        setCategories(res.data.categories);
+      const cats = res.data?.categories;
+      if (cats?.length) {
+        setCategories(cats);
         // Auto-select the only available category
-        setForm((prev) => ({ ...prev, categoryId: res.data.categories[0].id }));
+        setForm((prev) => ({ ...prev, categoryId: cats[0].id }));
       }
     });
   }, []);
