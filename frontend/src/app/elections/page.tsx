@@ -176,11 +176,6 @@ export default function PublicElectionsPage() {
               </div>
               <h4>{item.title}</h4>
               <p>{item.description}</p>
-              {item.fee && (
-                <p style={{ fontWeight: 700, color: "var(--accent)", marginTop: "var(--space-1)" }}>
-                  Fee: {item.fee}
-                </p>
-              )}
               {item.time && (
                 <p style={{ fontWeight: 600, marginTop: "var(--space-1)" }}>
                   🕐 {item.time}
