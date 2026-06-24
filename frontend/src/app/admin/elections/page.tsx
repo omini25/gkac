@@ -583,6 +583,7 @@ export default function AdminElectionsPage() {
                       <th>Nominee</th>
                       <th>Statement</th>
                       <th>Form File</th>
+                      <th>Proof</th>
                       <th>Status</th>
                       <th>Actions</th>
                     </tr>
@@ -590,6 +591,7 @@ export default function AdminElectionsPage() {
                   <tbody>
                     {declarations.map((d) => {
                       const formUrl = d.form_file_path ? api.getFormDownloadUrl(d.form_file_path) : null;
+                      const proofUrl = d.proof_file_path ? api.getFormDownloadUrl(d.proof_file_path) : null;
                       return (
                       <tr key={d.id}>
                         <td>
@@ -620,6 +622,21 @@ export default function AdminElectionsPage() {
                               title="Download uploaded form"
                             >
                               📄 View
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: 12, color: "var(--muted)" }}>—</span>
+                          )}
+                        </td>
+                        <td>
+                          {proofUrl ? (
+                            <a
+                              href={proofUrl}
+                              className="btn btn-outline btn-xs"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="View proof of payment"
+                            >
+                              💳 View
                             </a>
                           ) : (
                             <span style={{ fontSize: 12, color: "var(--muted)" }}>—</span>

@@ -302,6 +302,7 @@ export interface ElectionDeclaration {
   // New form upload fields
   form_type?: "declaration" | "nomination";
   form_file_path?: string | null;
+  proof_file_path?: string | null;
   nominee_user_id?: string | null;
   nominee_first_name?: string;
   nominee_last_name?: string;

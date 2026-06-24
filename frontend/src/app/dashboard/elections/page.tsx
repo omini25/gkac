@@ -230,13 +230,31 @@ export default function ElectionsPage() {
       <div className="card" style={{ marginBottom: "var(--space-4)" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div>
-            <strong style={{ fontSize: 15 }}>📋 Election Forms</strong>
+            <strong style={{ fontSize: 15 }}>📋 Register Declaration of Interest or Nomination</strong>
             <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
-              Download, fill, and upload your Declaration of Interest or Nomination Form for the upcoming election.
+              To register for the upcoming election, you can either <strong>declare your own interest</strong> in a position or <strong>nominate another eligible member</strong>.
             </p>
           </div>
+          <div style={{ fontSize: 13, lineHeight: 1.7 }}>
+            <p style={{ margin: "8px 0 4px", fontWeight: 600 }}>📝 To Declare Interest:</p>
+            <ol style={{ margin: 0, paddingLeft: 20 }}>
+              <li>Select the position you wish to contest</li>
+              <li>Download &amp; complete the Declaration of Interest form</li>
+              <li>Pay the declaration fee (₦50,000) to the association account</li>
+              <li>Upload the completed form and proof of payment</li>
+              <li>Submit — admin will review and approve your candidacy</li>
+            </ol>
+            <p style={{ margin: "8px 0 4px", fontWeight: 600 }}>📋 To Nominate a Member:</p>
+            <ol style={{ margin: 0, paddingLeft: 20 }}>
+              <li>Select the position and search for the member you wish to nominate</li>
+              <li>Download &amp; complete the Nomination Form</li>
+              <li>Pay the nomination fee (₦50,000 – ₦100,000 for President) to the association account</li>
+              <li>Upload the completed form and proof of payment</li>
+              <li>Submit — admin will review and notify the nominee</li>
+            </ol>
+          </div>
           <span style={{ fontSize: 12, color: "var(--muted)" }}>
-            Use the "Declare Interest" and "Nomination Form" buttons below when a declaration/nomination period is open.
+            The "Declare Interest" and "Nomination Form" buttons below will only appear when the declaration or nomination period is open for an upcoming election.
           </span>
         </div>
       </div>
@@ -504,13 +522,13 @@ export default function ElectionsPage() {
               </ol>
               <div style={{ marginTop: 10 }}>
                 <a
-                  href="/forms/declaration-of-interest.html"
+                  href="/forms/expression of intrest.pdf"
                   className="btn btn-outline btn-sm"
                   target="_blank"
                   rel="noopener noreferrer"
                   download
                 >
-                  📄 Download Declaration of Interest Form (PDF)
+                  📄 Download Declaration of Interest Form
                 </a>
               </div>
             </div>
@@ -712,13 +730,13 @@ export default function ElectionsPage() {
               </ol>
               <div style={{ marginTop: 10 }}>
                 <a
-                  href="/forms/nomination-form.html"
+                  href="/forms/nomination form.pdf"
                   className="btn btn-outline btn-sm"
                   target="_blank"
                   rel="noopener noreferrer"
                   download
                 >
-                  📄 Download Nomination Form (PDF)
+                  📄 Download Nomination Form
                 </a>
               </div>
             </div>
