@@ -1,8 +1,42 @@
 import { Router, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import crypto from "crypto";
 import { getDbPool } from "../db";
 
 export const electionsRouter = Router();
+
+// ─── File upload setup for election forms ────────────────────────────────
+const ELECTION_FORMS_DIR = path.join(__dirname, "..", "..", "uploads", "election-forms");
+if (!fs.existsSync(ELECTION_FORMS_DIR)) {
+  fs.mkdirSync(ELECTION_FORMS_DIR, { recursive: true });
+}
+
+const formStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, ELECTION_FORMS_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const name = crypto.randomBytes(16).toString("hex") + ext;
+    cb(null, name);
+  },
+});
+
+const uploadForm = multer({
+  storage: formStorage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "image/jpeg", "image/png", "image/gif", "image/webp",
+    ];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    cb(new Error("File type not allowed. Accepted: PDF, DOC, DOCX, images."));
+  },
+});
 
 const JWT_SECRET = process.env.JWT_SECRET || "gkac-dev-secret-change-in-production";
 
@@ -121,16 +155,44 @@ electionsRouter.post("/elections", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Title is required." });
     }
 
+    // Determine the election status based on the timeline dates provided
+    // Instead of always defaulting to 'draft', compute the current stage
+    const now = new Date();
+    let status = "draft";
+
+    // Collect all timeline dates and check if any are set
+    const hasTimelineDates = [
+      declarationStart, nominationStart,
+      eligibleVotersReleaseDate, screeningDate,
+      qualifiedCandidatesReleaseDate, manifestoDate,
+      electionDate, startDate,
+    ].some((d) => d != null);
+
+    if (hasTimelineDates) {
+      // Check if election date has passed → closed
+      if (electionDate && new Date(electionDate) <= now) {
+        status = "closed";
+      }
+      // Check if voting period is active
+      else if (startDate && new Date(startDate) <= now && (!endDate || new Date(endDate) > now)) {
+        status = "active";
+      }
+      // Has timeline dates but nothing has started yet → upcoming (accepts declarations/nominations)
+      else {
+        status = "upcoming";
+      }
+    }
+
     const db = getDbPool();
     const result = await db.query(
       `INSERT INTO elections (
-        title, description, start_date, end_date, eligible_roles, created_by,
+        title, description, start_date, end_date, eligible_roles, created_by, status,
         declaration_start, declaration_end,
         nomination_start, nomination_end,
         eligible_voters_release_date, screening_date,
         qualified_candidates_release_date, manifesto_date,
         election_date, swearing_in_date
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING *`,
       [
         title.trim(),
         description?.trim() || null,
@@ -138,6 +200,7 @@ electionsRouter.post("/elections", async (req: Request, res: Response) => {
         endDate || null,
         eligibleRoles || [],
         auth.userId,
+        status,
         declarationStart || null,
         declarationEnd || null,
         nominationStart || null,
@@ -426,14 +489,21 @@ electionsRouter.get("/elections/:id/eligible-voters", async (req: Request, res: 
 // ============================================================================
 
 // ─── POST /api/elections/:id/declare ──────────────────────────────────────
-electionsRouter.post("/elections/:id/declare", async (req: Request, res: Response) => {
+// Accepts multipart/form-data with formFile (declaration/nomination form) and
+// proofFile (proof of payment for the election fee)
+electionsRouter.post("/elections/:id/declare", uploadForm.fields([
+  { name: "formFile", maxCount: 1 },
+  { name: "proofFile", maxCount: 1 },
+]), async (req: Request, res: Response) => {
   const auth = authenticate(req, res);
   if (!auth) return;
 
   try {
     const db = getDbPool();
     const { id } = req.params;
-    const { positionId, statement } = req.body;
+    const positionId = req.body.positionId;
+    const statement = req.body.statement;
+    const formType = req.body.formType || "declaration";
 
     if (!positionId) {
       return res.status(400).json({ error: "Position ID is required." });
@@ -471,20 +541,32 @@ electionsRouter.post("/elections/:id/declare", async (req: Request, res: Respons
 
     // Check if already declared for this position
     const existingResult = await db.query(
-      "SELECT id, status FROM election_declarations WHERE position_id = $1 AND user_id = $2",
-      [positionId, auth.userId]
+      "SELECT id, status FROM election_declarations WHERE position_id = $1 AND user_id = $2 AND form_type = $3",
+      [positionId, auth.userId, formType]
     );
     if (existingResult.rows.length > 0) {
       return res.status(409).json({
-        error: "You have already declared interest in this position.",
+        error: "You have already submitted this form for this position.",
         declaration: existingResult.rows[0],
       });
     }
 
+    // Handle file uploads
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    const formFilePath = files?.formFile?.[0] ? files.formFile[0].filename : null;
+    const proofFilePath = files?.proofFile?.[0] ? files.proofFile[0].filename : null;
+
+    if (!proofFilePath) {
+      return res.status(400).json({ error: "Proof of payment is required. Please upload your payment receipt." });
+    }
+
+    // For nomination forms, get the nominee user ID
+    const nomineeUserId = req.body.nomineeUserId || null;
+
     const result = await db.query(
-      `INSERT INTO election_declarations (election_id, position_id, user_id, statement)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [id, positionId, auth.userId, statement?.trim() || null]
+      `INSERT INTO election_declarations (election_id, position_id, user_id, statement, form_type, form_file_path, proof_file_path, nominee_user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [id, positionId, auth.userId, statement?.trim() || null, formType, formFilePath, proofFilePath, nomineeUserId]
     );
 
     return res.status(201).json({ declaration: result.rows[0] });
@@ -526,10 +608,13 @@ electionsRouter.get("/elections/:id/declarations", async (req: Request, res: Res
     const db = getDbPool();
     const result = await db.query(
       `SELECT d.*, ep.title AS position_title,
-              u.first_name, u.last_name, u.email, u.membership_code, u.membership_category_name
+              u.first_name, u.last_name, u.email, u.membership_code, u.membership_category_name,
+              nu.first_name AS nominee_first_name, nu.last_name AS nominee_last_name,
+              nu.email AS nominee_email, nu.membership_code AS nominee_membership_code
        FROM election_declarations d
        JOIN election_positions ep ON d.position_id = ep.id
        JOIN users u ON d.user_id = u.id
+       LEFT JOIN users nu ON d.nominee_user_id = nu.id
        WHERE d.election_id = $1
        ORDER BY d.status, ep.sort_order, d.created_at`,
       [req.params.id]
@@ -611,6 +696,97 @@ electionsRouter.put("/elections/declarations/:id", async (req: Request, res: Res
   }
 });
 
+// ─── GET /api/elections/members/search — Search members (for nominations) ─
+electionsRouter.get("/elections/members/search", async (req: Request, res: Response) => {
+  const auth = authenticate(req, res);
+  if (!auth) return;
+
+  try {
+    const query = (req.query.q as string || "").trim();
+    if (query.length < 2) {
+      return res.json({ members: [] });
+    }
+
+    const db = getDbPool();
+    const searchPattern = `%${query}%`;
+    const result = await db.query(
+      `SELECT id, first_name, last_name, email, membership_code
+       FROM users
+       WHERE application_status = 'approved'
+         AND is_admin = FALSE
+         AND (
+           first_name ILIKE $1 OR
+           last_name ILIKE $1 OR
+           email ILIKE $1 OR
+           membership_code ILIKE $1
+         )
+       ORDER BY last_name, first_name
+       LIMIT 20`,
+      [searchPattern]
+    );
+
+    const members = result.rows.map((r: any) => ({
+      id: r.id,
+      name: `${r.first_name} ${r.last_name}`,
+      firstName: r.first_name,
+      lastName: r.last_name,
+      email: r.email,
+      mno: r.membership_code || "",
+    }));
+
+    return res.json({ members });
+  } catch (err) {
+    console.error("Error searching members:", err);
+    return res.status(500).json({ error: "Failed to search members." });
+  }
+});
+
+// ─── GET /api/elections/forms/:filename (download uploaded form) ──────────
+electionsRouter.get("/elections/forms/:filename", async (req: Request, res: Response) => {
+  const auth = authenticate(req, res);
+  if (!auth) return;
+
+  try {
+    const { filename } = req.params;
+    const filePath = path.join(ELECTION_FORMS_DIR, filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "File not found." });
+    }
+
+    // Look up the declaration to verify access
+    const db = getDbPool();
+    const declResult = await db.query(
+      `SELECT d.* FROM election_declarations d WHERE d.form_file_path = $1`,
+      [filename]
+    );
+
+    if (declResult.rows.length === 0) {
+      return res.status(404).json({ error: "Declaration not found for this file." });
+    }
+
+    const declaration = declResult.rows[0];
+
+    // Check access: only the submitter, admin, or nominee can download
+    const adminCheck = await getDbPool().query(
+      "SELECT is_admin FROM users WHERE id = $1", [auth.userId]
+    );
+    const isAdminUser = adminCheck.rows.length > 0 && adminCheck.rows[0].is_admin;
+
+    if (declaration.user_id !== auth.userId &&
+        declaration.nominee_user_id !== auth.userId &&
+        !isAdminUser) {
+      return res.status(403).json({ error: "Access denied." });
+    }
+
+    const originalName = `${declaration.form_type}-form-${declaration.id}${path.extname(filename)}`;
+    res.download(filePath, originalName);
+  } catch (err) {
+    console.error("Error downloading form file:", err);
+    return res.status(500).json({ error: "Failed to download file." });
+  }
+});
+
 // ─── DELETE /api/elections/declarations/:id (admin) ───────────────────────
 electionsRouter.delete("/elections/declarations/:id", async (req: Request, res: Response) => {
   const auth = authenticate(req, res);
@@ -649,7 +825,7 @@ electionsRouter.delete("/elections/declarations/:id", async (req: Request, res: 
 });
 
 // ─── POST /api/elections/:id/declare-as-admin (admin) ────────────────────
-electionsRouter.post("/elections/:id/declare-as-admin", async (req: Request, res: Response) => {
+electionsRouter.post("/elections/:id/declare-as-admin", uploadForm.single("formFile"), async (req: Request, res: Response) => {
   const auth = authenticate(req, res);
   if (!auth) return;
   if (!(await requireAdmin(auth, res))) return;
@@ -657,10 +833,19 @@ electionsRouter.post("/elections/:id/declare-as-admin", async (req: Request, res
   try {
     const db = getDbPool();
     const { id } = req.params;
-    const { positionId, userId, statement } = req.body;
+    const positionId = req.body.positionId;
+    const userId = req.body.userId;
+    const statement = req.body.statement;
+    const formType = req.body.formType || "declaration";
+    const nomineeUserId = req.body.nomineeUserId || null;
 
     if (!positionId || !userId) {
       return res.status(400).json({ error: "Position ID and User ID are required." });
+    }
+
+    // If nomination form, nomineeUserId is required
+    if (formType === "nomination" && !nomineeUserId) {
+      return res.status(400).json({ error: "Nominee User ID is required for nomination forms." });
     }
 
     // Verify the election exists
@@ -692,22 +877,25 @@ electionsRouter.post("/elections/:id/declare-as-admin", async (req: Request, res
 
     // Check if already declared for this position
     const existingResult = await db.query(
-      "SELECT id, status FROM election_declarations WHERE position_id = $1 AND user_id = $2",
-      [positionId, userId]
+      "SELECT id, status FROM election_declarations WHERE position_id = $1 AND user_id = $2 AND form_type = $3",
+      [positionId, userId, formType]
     );
     if (existingResult.rows.length > 0) {
       return res.status(409).json({
-        error: "This member has already declared interest in this position.",
+        error: `This member has already submitted a ${formType} form for this position.`,
         declaration: existingResult.rows[0],
       });
     }
 
+    // Handle file upload
+    const formFilePath = req.file ? req.file.filename : null;
+
     // Auto-approve when admin declares on behalf of a member
     const result = await db.query(
-      `INSERT INTO election_declarations (election_id, position_id, user_id, statement, status, reviewed_by, reviewed_at)
-       VALUES ($1, $2, $3, $4, 'approved', $5, NOW())
+      `INSERT INTO election_declarations (election_id, position_id, user_id, statement, form_type, form_file_path, nominee_user_id, status, reviewed_by, reviewed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'approved', $8, NOW())
        RETURNING *`,
-      [id, positionId, userId, statement?.trim() || null, auth.userId]
+      [id, positionId, userId, statement?.trim() || null, formType, formFilePath, nomineeUserId, auth.userId]
     );
 
     const declaration = result.rows[0];

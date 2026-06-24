@@ -58,8 +58,15 @@ export default function BillingPage() {
     return type === "renewal" ? "Renewal" : type === "registration" ? "Registration" : type;
   }
 
-  const annualDuePaid = user?.annualDuePaid ?? false;
-  const devFeePaid = user?.annualDevelopmentalFeePaid ?? false;
+  // Payment types that count toward annual fee coverage (renewal covers all)
+  const ANNUAL_FEE_TYPES = ["renewal", "annual_due", "annual_developmental_fee"];
+
+  function hasConfirmedAmong(types: string[]): boolean {
+    return payments.some((p) => types.includes(p.payment_type) && p.status === "confirmed");
+  }
+
+  const annualDuePaid = (user?.annualDuePaid ?? false) || hasConfirmedAmong(ANNUAL_FEE_TYPES);
+  const devFeePaid = (user?.annualDevelopmentalFeePaid ?? false) || hasConfirmedAmong(ANNUAL_FEE_TYPES);
   const currentYear = new Date().getFullYear();
 
   function openPayModal(type: "annualDue" | "devFee") {
@@ -219,7 +226,7 @@ export default function BillingPage() {
       )}
 
       {/* Summary */}
-      {payments.length > 0 && (
+      {/* {payments.length > 0 && (
         <div className="card" style={{ marginTop: 20 }}>
           <h4 style={{ marginBottom: 12 }}>Summary</h4>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 16 }}>
@@ -247,7 +254,7 @@ export default function BillingPage() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* ─── Dues Payment Modal ──────────────────────────────────────────── */}
       {showPayModal && (

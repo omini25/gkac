@@ -34,7 +34,7 @@ export default function AdminElectionsPage() {
   const [declarations, setDeclarations] = useState<ElectionDeclaration[]>([]);
   const [declLoading, setDeclLoading] = useState(false);
 
-  // Add Declaration modal
+  // Add Declaration modal (with form type and file upload)
   const [showAddDecl, setShowAddDecl] = useState(false);
   const [addDeclElectionId, setAddDeclElectionId] = useState<string | null>(null);
   const [addDeclPositionId, setAddDeclPositionId] = useState("");
@@ -45,6 +45,12 @@ export default function AdminElectionsPage() {
   const [addDeclSaving, setAddDeclSaving] = useState(false);
   // Positions for the current election (for the add declaration dropdown)
   const [addDeclPositions, setAddDeclPositions] = useState<ElectionPosition[]>([]);
+  const [addDeclFormType, setAddDeclFormType] = useState<"declaration" | "nomination">("declaration");
+  const [addDeclFormFile, setAddDeclFormFile] = useState<File | null>(null);
+  // Nominee fields for nomination forms
+  const [addDeclNomineeSearch, setAddDeclNomineeSearch] = useState("");
+  const [addDeclNomineeMembers, setAddDeclNomineeMembers] = useState<any[]>([]);
+  const [addDeclNomineeUserId, setAddDeclNomineeUserId] = useState("");
 
   // Results
   const [showResults, setShowResults] = useState<string | null>(null);
@@ -324,6 +330,11 @@ export default function AdminElectionsPage() {
     setAddDeclStatement("");
     setAddDeclMemberSearch("");
     setAddDeclMembers([]);
+    setAddDeclFormType("declaration");
+    setAddDeclFormFile(null);
+    setAddDeclNomineeSearch("");
+    setAddDeclNomineeMembers([]);
+    setAddDeclNomineeUserId("");
     setShowAddDecl(true);
   }
 
@@ -356,25 +367,77 @@ export default function AdminElectionsPage() {
     }
   }
 
+  async function searchNomineeMembers(query: string) {
+    setAddDeclNomineeSearch(query);
+    setAddDeclNomineeUserId("");
+    if (query.length < 2) {
+      setAddDeclNomineeMembers([]);
+      return;
+    }
+    const res = await api.getMembers();
+    if (res.data) {
+      const all = res.data.members as any[];
+      const q = query.toLowerCase();
+      setAddDeclNomineeMembers(
+        all
+          .filter((m: any) =>
+            m.name?.toLowerCase().includes(q) ||
+            m.email?.toLowerCase().includes(q) ||
+            m.mno?.toLowerCase().includes(q)
+          )
+          .slice(0, 20)
+          .map((m: any) => ({ id: m.id, name: m.name, email: m.email, mno: m.mno }))
+      );
+    }
+  }
+
   async function saveAddDecl() {
     if (!addDeclElectionId || !addDeclPositionId || !addDeclUserId) {
       showToast("Select a member and position", "error");
       return;
     }
+    if (addDeclFormType === "nomination" && !addDeclNomineeUserId) {
+      showToast("Select a nominee for nomination forms", "error");
+      return;
+    }
     setAddDeclSaving(true);
-    const res = await api.adminDeclareInterest(
-      addDeclElectionId,
-      addDeclPositionId,
-      addDeclUserId,
-      addDeclStatement || undefined
-    );
-    setAddDeclSaving(false);
-    if (res.data) {
-      showToast(res.data.message || "Declaration created", "success");
-      setShowAddDecl(false);
-      if (showDeclarations) openDeclarations(showDeclarations);
-    } else {
-      showToast(res.error || "Failed to create declaration", "error");
+
+    // Use FormData for file upload
+    const formData = new FormData();
+    formData.append("positionId", addDeclPositionId);
+    formData.append("userId", addDeclUserId);
+    formData.append("formType", addDeclFormType);
+    if (addDeclStatement) formData.append("statement", addDeclStatement);
+    if (addDeclFormType === "nomination" && addDeclNomineeUserId) {
+      formData.append("nomineeUserId", addDeclNomineeUserId);
+    }
+    if (addDeclFormFile) {
+      formData.append("formFile", addDeclFormFile);
+    }
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("gkac_token") : null;
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
+    try {
+      const res = await fetch(`${API_BASE}/elections/${addDeclElectionId}/declare-as-admin`, {
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      });
+      const json = await res.json();
+      setAddDeclSaving(false);
+      if (res.ok) {
+        showToast(json.message || "Form created", "success");
+        setShowAddDecl(false);
+        if (showDeclarations) openDeclarations(showDeclarations);
+      } else {
+        showToast(json.error || "Failed to create form", "error");
+      }
+    } catch (err) {
+      setAddDeclSaving(false);
+      showToast("Network error", "error");
     }
   }
 
@@ -516,22 +579,52 @@ export default function AdminElectionsPage() {
                     <tr>
                       <th>Member</th>
                       <th>Position</th>
-                      <th>Category</th>
+                      <th>Form Type</th>
+                      <th>Nominee</th>
                       <th>Statement</th>
+                      <th>Form File</th>
                       <th>Status</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {declarations.map((d) => (
+                    {declarations.map((d) => {
+                      const formUrl = d.form_file_path ? api.getFormDownloadUrl(d.form_file_path) : null;
+                      return (
                       <tr key={d.id}>
                         <td>
                           <strong>{d.first_name} {d.last_name}</strong>
                           <br /><span style={{ fontSize: 12, color: "var(--muted)" }}>{d.email}</span>
                         </td>
                         <td>{d.position_title}</td>
-                        <td style={{ fontSize: 13 }}>{d.membership_category_name}</td>
-                        <td style={{ maxWidth: 200, fontSize: 13 }}>{d.statement || "—"}</td>
+                        <td>
+                          <span className={`badge ${d.form_type === "nomination" ? "badge-pending" : "badge-active"}`}>
+                            {d.form_type === "nomination" ? "📋 Nomination" : "📝 Declaration"}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: 13 }}>
+                          {d.form_type === "nomination" ? (
+                            d.nominee_first_name ? (
+                              <><strong>{d.nominee_first_name} {d.nominee_last_name}</strong><br /><span style={{ fontSize: 11, color: "var(--muted)" }}>{d.nominee_email}</span></>
+                            ) : "—"
+                          ) : "—"}
+                        </td>
+                        <td style={{ maxWidth: 150, fontSize: 13 }}>{d.statement || "—"}</td>
+                        <td>
+                          {formUrl ? (
+                            <a
+                              href={formUrl}
+                              className="btn btn-outline btn-xs"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Download uploaded form"
+                            >
+                              📄 View
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: 12, color: "var(--muted)" }}>—</span>
+                          )}
+                        </td>
                         <td><span className={d.status === "approved" ? "badge badge-active" : d.status === "rejected" ? "badge badge-expired" : "badge badge-pending"}>{d.status}</span></td>
                         <td className="actions">
                           {d.status === "pending" && (
@@ -548,7 +641,7 @@ export default function AdminElectionsPage() {
                           )}
                         </td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               </div>
@@ -887,15 +980,27 @@ export default function AdminElectionsPage() {
         </div>
       )}
 
-      {/* ═══ ADD DECLARATION MODAL ═══ */}
+      {/* ═══ ADD DECLARATION MODAL (with form type and file upload) ═══ */}
       {showAddDecl && (
         <div className="modal-overlay open" onClick={() => setShowAddDecl(false)}>
-          <div className="modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 550 }} onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setShowAddDecl(false)}>✕</button>
-            <h3>Add Declaration of Interest</h3>
+            <h3>Add Election Form</h3>
             <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 14 }}>
-              Declare interest on behalf of a member. The declaration will be auto-approved.
+              Add a declaration of interest or nomination form on behalf of a member. Will be auto-approved.
             </p>
+
+            {/* Form Type Selection */}
+            <div className="form-group">
+              <label>Form Type *</label>
+              <select
+                value={addDeclFormType}
+                onChange={(e) => setAddDeclFormType(e.target.value as "declaration" | "nomination")}
+              >
+                <option value="declaration">📝 Declaration of Interest</option>
+                <option value="nomination">📋 Nomination Form</option>
+              </select>
+            </div>
 
             <div className="form-group">
               <label>Search Member *</label>
@@ -932,6 +1037,44 @@ export default function AdminElectionsPage() {
               )}
             </div>
 
+            {/* Nominee search - only for nomination forms */}
+            {addDeclFormType === "nomination" && (
+              <div className="form-group">
+                <label>Nominee (the person being nominated) *</label>
+                <input
+                  type="text"
+                  placeholder="Search for the nominee…"
+                  value={addDeclNomineeSearch}
+                  onChange={(e) => searchNomineeMembers(e.target.value)}
+                />
+                {addDeclNomineeMembers.length > 0 && (
+                  <div style={{
+                    marginTop: 4, border: "1px solid var(--border)", borderRadius: "var(--radius-md)",
+                    maxHeight: 200, overflowY: "auto", background: "var(--bg)"
+                  }}>
+                    {addDeclNomineeMembers.map((m: any) => (
+                      <div
+                        key={m.id}
+                        onClick={() => {
+                          setAddDeclNomineeUserId(m.id);
+                          setAddDeclNomineeSearch(`${m.name} (${m.email})`);
+                          setAddDeclNomineeMembers([]);
+                        }}
+                        style={{
+                          padding: "8px 12px", cursor: "pointer", fontSize: 13,
+                          borderBottom: "1px solid var(--border)", background: addDeclNomineeUserId === m.id ? "var(--green-light)" : "transparent",
+                        }}
+                      >
+                        <strong>{m.name}</strong>
+                        <span style={{ color: "var(--muted)", marginLeft: 8 }}>{m.email}</span>
+                        <span style={{ color: "var(--muted)", marginLeft: 8, fontSize: 11 }}>{m.mno}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="form-group">
               <label>Position *</label>
               <select value={addDeclPositionId} onChange={(e) => setAddDeclPositionId(e.target.value)}>
@@ -948,21 +1091,63 @@ export default function AdminElectionsPage() {
             <div className="form-group">
               <label>Statement (optional)</label>
               <textarea
-                rows={3}
+                rows={2}
                 value={addDeclStatement}
                 onChange={(e) => setAddDeclStatement(e.target.value)}
-                placeholder="Optional statement from the member…"
+                placeholder="Optional statement…"
               />
+            </div>
+
+            {/* File Upload */}
+            <div className="form-group">
+              <label>Upload Form File (optional)</label>
+              <div style={{
+                border: "2px dashed var(--border-strong)",
+                borderRadius: "var(--radius-md)",
+                padding: 12,
+                textAlign: "center",
+                background: addDeclFormFile ? "var(--green-light)" : "var(--bg)",
+                cursor: "pointer",
+              }}
+                onClick={() => document.getElementById("admin-decl-file-input")?.click()}
+              >
+                {addDeclFormFile ? (
+                  <div>
+                    <span style={{ fontSize: 20 }}>✅</span>
+                    <p style={{ margin: "4px 0", fontSize: 13 }}><strong>{addDeclFormFile.name}</strong></p>
+                    <button
+                      className="btn btn-ghost btn-xs"
+                      onClick={(e) => { e.stopPropagation(); setAddDeclFormFile(null); }}
+                    >Remove</button>
+                  </div>
+                ) : (
+                  <div>
+                    <span style={{ fontSize: 24 }}>📄</span>
+                    <p style={{ margin: "4px 0", fontSize: 12, color: "var(--muted)" }}>Click to select form file (optional)</p>
+                  </div>
+                )}
+                <input
+                  id="admin-decl-file-input"
+                  type="file"
+                  accept=".pdf,.doc,.docx,image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setAddDeclFormFile(e.target.files[0]);
+                    }
+                  }}
+                />
+              </div>
             </div>
 
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 className="btn btn-accent"
                 style={{ flex: 1 }}
-                disabled={addDeclSaving || !addDeclUserId || !addDeclPositionId}
+                disabled={addDeclSaving || !addDeclUserId || !addDeclPositionId || (addDeclFormType === "nomination" && !addDeclNomineeUserId)}
                 onClick={saveAddDecl}
               >
-                {addDeclSaving ? "Saving…" : "Add Declaration"}
+                {addDeclSaving ? "Saving…" : "Add Form"}
               </button>
               <button className="btn btn-ghost" onClick={() => setShowAddDecl(false)}>Cancel</button>
             </div>

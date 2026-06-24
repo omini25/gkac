@@ -299,6 +299,14 @@ export interface ElectionDeclaration {
   email?: string;
   membership_code?: string;
   membership_category_name?: string;
+  // New form upload fields
+  form_type?: "declaration" | "nomination";
+  form_file_path?: string | null;
+  nominee_user_id?: string | null;
+  nominee_first_name?: string;
+  nominee_last_name?: string;
+  nominee_email?: string;
+  nominee_membership_code?: string;
 }
 
 export interface ElectionCandidate {
@@ -602,6 +610,47 @@ export const api = {
     request<{ declaration: ElectionDeclaration; message: string }>(`/elections/${electionId}/declare-as-admin`, {
       method: "POST", body: JSON.stringify({ positionId, userId, statement }),
     }),
+
+  // ─── Declaration of Interest with Form Upload ─────────────────────────
+  submitDeclarationForm: (electionId: string, positionId: string, formFile: File, proofFile: File, statement?: string) => {
+    const formData = new FormData();
+    formData.append("positionId", positionId);
+    formData.append("formType", "declaration");
+    if (statement) formData.append("statement", statement);
+    formData.append("formFile", formFile);
+    formData.append("proofFile", proofFile);
+    return request<{ declaration: ElectionDeclaration }>(`/elections/${electionId}/declare`, {
+      method: "POST",
+      headers: {},
+      body: formData,
+    });
+  },
+
+  // ─── Nomination Form (nominate another member) ────────────────────────
+  submitNominationForm: (electionId: string, positionId: string, nomineeUserId: string, formFile: File, proofFile: File, statement?: string) => {
+    const formData = new FormData();
+    formData.append("positionId", positionId);
+    formData.append("formType", "nomination");
+    formData.append("nomineeUserId", nomineeUserId);
+    if (statement) formData.append("statement", statement);
+    formData.append("formFile", formFile);
+    formData.append("proofFile", proofFile);
+    return request<{ declaration: ElectionDeclaration }>(`/elections/${electionId}/declare`, {
+      method: "POST",
+      headers: {},
+      body: formData,
+    });
+  },
+
+  // ─── Download uploaded form file ──────────────────────────────────────
+  getFormDownloadUrl: (filename: string) =>
+    `${API_BASE}/elections/forms/${encodeURIComponent(filename)}`,
+
+  // ─── Search members (for nominations) ─────────────────────────────────
+  searchMembers: (query: string) =>
+    request<{ members: { id: string; name: string; firstName: string; lastName: string; email: string; mno: string }[] }>(
+      `/elections/members/search?q=${encodeURIComponent(query)}`
+    ),
 
   getElectionEvents: () =>
     request<{ events: any[] }>("/elections/events"),

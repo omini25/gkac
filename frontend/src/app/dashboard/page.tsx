@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useAuth, getExpiryInfo } from "@/lib/useAuth";
-import { api, type NewsItem, type EventItem, type Election, type RenewMembershipResult } from "@/lib/api";
+import { api, type NewsItem, type EventItem, type Election, type PaymentRecord, type RenewMembershipResult } from "@/lib/api";
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -12,6 +12,7 @@ export default function DashboardPage() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [elections, setElections] = useState<Election[]>([]);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   // ─── Renewal state ─────────────────────────────────────────────────────
@@ -42,11 +43,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const [newsRes, eventsRes, electionEventsRes, electionsRes] = await Promise.all([
+      const [newsRes, eventsRes, electionEventsRes, electionsRes, paymentsRes] = await Promise.all([
         api.getContent<NewsItem>("news"),
         api.getContent<EventItem>("events"),
         api.getElectionEvents(),
         api.getElections(),
+        api.getPaymentHistory(),
       ]);
       if (newsRes.data) setNews(newsRes.data.items.slice(0, 3));
       const allEvents = [
@@ -59,6 +61,7 @@ export default function DashboardPage() {
         .slice(0, 3);
       setEvents(upcoming);
       if (electionsRes.data) setElections(electionsRes.data.elections);
+      if (paymentsRes.data) setPayments(paymentsRes.data.payments);
       setLoading(false);
     }
     load();
@@ -121,6 +124,61 @@ export default function DashboardPage() {
     setRenewStep("done");
   }
 
+  // ─── Fee status helpers ───────────────────────────────────────────────
+  /** Payment types that count toward annual fee coverage (renewal covers all) */
+  const ANNUAL_FEE_TYPES = ["renewal", "annual_due", "annual_developmental_fee"];
+
+  function hasConfirmedPayment(types: string[]): boolean {
+    return payments.some((p) => types.includes(p.payment_type) && p.status === "confirmed");
+  }
+
+  function getLastPaymentAmong(types: string[]): PaymentRecord | undefined {
+    return payments
+      .filter((p) => types.includes(p.payment_type) && p.status === "confirmed")
+      .sort(
+        (a, b) =>
+          new Date(b.paid_at || b.created_at).getTime() -
+          new Date(a.paid_at || a.created_at).getTime()
+      )[0];
+  }
+
+  function feeStatus(type: string, userField: boolean | undefined): { label: string; className: string } {
+    // For annual fees, also consider "renewal" payments as covering the fee
+    const checkTypes = type === "annual_due" || type === "annual_developmental_fee"
+      ? ANNUAL_FEE_TYPES
+      : [type];
+
+    if (userField === true || hasConfirmedPayment(checkTypes)) {
+      return { label: "Paid ✓", className: "status-badge status-active" };
+    }
+    return { label: "Not Paid", className: "status-badge status-expired" };
+  }
+
+  function nextDue(feeType: string): string {
+    if (feeType === "membership") return "N/A (One-time)";
+
+    // For annual fees, calculate from the most recent relevant payment + 1 year
+    const checkTypes = feeType === "annual_due" || feeType === "annual_developmental_fee"
+      ? ANNUAL_FEE_TYPES
+      : [feeType];
+
+    const lastPayment = getLastPaymentAmong(checkTypes);
+    if (lastPayment && lastPayment.paid_at) {
+      const nextDate = new Date(lastPayment.paid_at);
+      nextDate.setFullYear(nextDate.getFullYear() + 1);
+      if (nextDate.getTime() > Date.now()) {
+        return formatDate(nextDate.toISOString());
+      }
+      return "Overdue — Renew Now";
+    }
+
+    // Fall back to membership expiry if no payment history found
+    if (!user?.membershipExpiresAt) return "—";
+    const expires = new Date(user.membershipExpiresAt);
+    if (expires.getTime() <= Date.now()) return "Overdue — Renew Now";
+    return formatDate(user.membershipExpiresAt);
+  }
+
   function formatNaira(kobo: number) {
     return `₦${(kobo / 100).toLocaleString("en-NG", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   }
@@ -132,7 +190,7 @@ export default function DashboardPage() {
   return (
     <>
       {/* Status + Renewal Banner */}
-      <div
+      {/* <div
         className="card"
         style={{
           marginBottom: 20,
@@ -182,7 +240,7 @@ export default function DashboardPage() {
             </button>
           )}
         </div>
-      </div>
+      </div> */}
 
       {/* Stats */}
       <div className="stats-row">
@@ -198,10 +256,10 @@ export default function DashboardPage() {
           <div className="stat-value">{user?.membershipCode ? membershipNum : "—"}</div>
           <div className="stat-label">Membership No.</div>
         </div>
-        <div className="stat-card">
+        {/* <div className="stat-card">
           <div className="stat-value" style={{ fontSize: 18 }}>{formattedCategory}</div>
           <div className="stat-label">Category</div>
-        </div>
+        </div> */}
       </div>
 
       {/* Fee Structure */}
@@ -215,23 +273,29 @@ export default function DashboardPage() {
         <div style={{ overflowX: "auto" }}>
           <table className="fee-table" style={{ margin: 0, width: "100%" }}>
             <thead>
-              <tr><th>Fee Type</th><th>Amount</th><th>Frequency</th></tr>
+              <tr><th>Fee Type</th><th>Amount</th><th>Frequency</th><th>Status</th><th>Next Due</th></tr>
             </thead>
             <tbody>
               <tr>
                 <td><strong>Membership Fee</strong></td>
                 <td>₦10,000</td>
                 <td>One-time</td>
+                <td><span className={feeStatus("registration", user?.applicationStatus === "approved" ? true : undefined).className}>{feeStatus("registration", user?.applicationStatus === "approved" ? true : undefined).label}</span></td>
+                <td style={{ fontSize: 13, color: "var(--muted)" }}>{nextDue("membership")}</td>
               </tr>
               <tr>
                 <td><strong>Annual Dues</strong></td>
                 <td>₦24,000</td>
                 <td>Yearly</td>
+                <td><span className={feeStatus("annual_due", user?.annualDuePaid).className}>{feeStatus("annual_due", user?.annualDuePaid).label}</span></td>
+                <td style={{ fontSize: 13, color: "var(--muted)" }}>{nextDue("annual_due")}</td>
               </tr>
               <tr>
                 <td><strong>Annual Developmental Fee</strong></td>
                 <td>₦50,000</td>
                 <td>Yearly</td>
+                <td><span className={feeStatus("annual_developmental_fee", user?.annualDevelopmentalFeePaid).className}>{feeStatus("annual_developmental_fee", user?.annualDevelopmentalFeePaid).label}</span></td>
+                <td style={{ fontSize: 13, color: "var(--muted)" }}>{nextDue("annual_developmental_fee")}</td>
               </tr>
             </tbody>
           </table>

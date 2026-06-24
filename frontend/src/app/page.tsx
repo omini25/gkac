@@ -156,20 +156,20 @@ export default function HomePage() {
           </div>
           <div className="stats-bar">
             <div className="stat-card-premium">
-              <div className="sp-value">₦250M+</div>
-              <div className="sp-label">Scholarships Awarded</div>
+              <div className="sp-value">5+</div>
+              <div className="sp-label">Continental</div>
             </div>
             <div className="stat-card-premium">
-              <div className="sp-value">1,200+</div>
-              <div className="sp-label">Community Projects</div>
+              <div className="sp-value">70+</div>
+              <div className="sp-label">Worldwide / Global Members</div>
             </div>
             <div className="stat-card-premium">
-              <div className="sp-value">85,000+</div>
-              <div className="sp-label">Lives Impacted</div>
+              <div className="sp-value">2018</div>
+              <div className="sp-label">Year of Service</div>
             </div>
             <div className="stat-card-premium">
-              <div className="sp-value">150+</div>
-              <div className="sp-label">Chapters Worldwide</div>
+              <div className="sp-value">1,000</div>
+              <div className="sp-label">Targeted Membership Number</div>
             </div>
           </div>
         </div>

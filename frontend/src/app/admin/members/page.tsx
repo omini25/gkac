@@ -15,7 +15,7 @@ interface Member {
   stateOfOrigin: string;
   lga: string;
   residentialAddress: string;
-  category: string;
+
   mno: string;
   applicationStatus: string;
   rejectionReason: string | null;
@@ -60,7 +60,6 @@ export default function AdminMembersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [filterCat, setFilterCat] = useState("all");
   const [toast, setToast] = useState({ msg: "", type: "" });
 
   // Selection for CSV export
@@ -200,9 +199,9 @@ export default function AdminMembersPage() {
       showToast("No members selected for export.", "error");
       return;
     }
-    const headers = ["Name","Email","Phone","Membership No","Category","Chapter","Status","Expiry","Gender","State","LGA","Address","Joined"];
+    const headers = ["Name","Email","Phone","Membership No","Chapter","Status","Expiry","Gender","State","LGA","Address","Joined"];
     const rows = exportMembers.map((m) => [
-      m.name, m.email, m.phone, m.mno, m.category, m.lga || "—", m.status,
+      m.name, m.email, m.phone, m.mno, m.lga || "—", m.status,
       m.expiry ? new Date(m.expiry).toLocaleDateString("en-GB") : "—",
       m.gender || "—", m.stateOfOrigin || "—", m.lga || "—",
       (m.residentialAddress || "—").replace(/,/g, " "),
@@ -229,7 +228,7 @@ export default function AdminMembersPage() {
 
   // ─── Add Member ─────────────────────────────────────────────────────────
   function openAdd() {
-    setAddForm({ firstName: "", lastName: "", email: "", phone: "", password: "", gender: "", stateOfOrigin: "", lga: "", category: "Member" });
+    setAddForm({ firstName: "", lastName: "", email: "", phone: "", password: "", gender: "", stateOfOrigin: "", lga: "" });
     setShowAdd(true);
   }
 
@@ -249,7 +248,7 @@ export default function AdminMembersPage() {
       gender: addForm.gender,
       stateOfOrigin: addForm.stateOfOrigin,
       lga: addForm.lga,
-      categoryName: addForm.category,
+      membershipCategoryName: "Member",
     });
     setAdding(false);
     if (res.error) {
@@ -279,8 +278,7 @@ export default function AdminMembersPage() {
       m.mno.toLowerCase().includes(s) ||
       m.email.toLowerCase().includes(s);
     const matchStatus = filterStatus === "all" || m.status === filterStatus;
-    const matchCat = filterCat === "all" || m.category === filterCat;
-    return matchSearch && matchStatus && matchCat;
+    return matchSearch && matchStatus;
   });
 
   // ─── Approve ──────────────────────────────────────────────────────────────
@@ -339,7 +337,6 @@ export default function AdminMembersPage() {
       lastName: m.lastName,
       email: m.email,
       phone: m.phone,
-      category: m.category,
       membershipCode: m.mno === "—" ? "" : m.mno,
     });
     setShowEdit(true);
@@ -520,10 +517,7 @@ export default function AdminMembersPage() {
             <option value="Suspended">Suspended</option>
             <option value="Rejected">Rejected</option>
           </select>
-          <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)}>
-            <option value="all">All Categories</option>
-            <option value="Member">Member</option>
-          </select>
+
         </div>
 
         <div style={{ overflowX: "auto" }}>
@@ -536,7 +530,6 @@ export default function AdminMembersPage() {
                 </th>
                 <th>Name</th>
                 <th>Membership No</th>
-                <th>Category</th>
                 <th>Chapter</th>
                 <th>Status</th>
                 <th>Expiry</th>
@@ -546,13 +539,13 @@ export default function AdminMembersPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: "center", padding: 24, color: "var(--muted)" }}>
+                  <td colSpan={7} style={{ textAlign: "center", padding: 24, color: "var(--muted)" }}>
                     <span className="loader-dot" />
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: "center", padding: 24, color: "var(--muted)" }}>
+                  <td colSpan={7} style={{ textAlign: "center", padding: 24, color: "var(--muted)" }}>
                     No members found.
                   </td>
                 </tr>
@@ -569,7 +562,6 @@ export default function AdminMembersPage() {
                       <span style={{ fontSize: 11, color: "var(--muted)" }}>{m.email}</span>
                     </td>
                     <td>{m.mno}</td>
-                    <td>{m.category}</td>
                     <td>{m.lga || "—"}</td>
                     <td>{statusBadge(m.status)}</td>
                     <td>{m.expiry ? new Date(m.expiry).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</td>
@@ -651,7 +643,6 @@ export default function AdminMembersPage() {
             {statusBadge(panel.status)}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13, margin: "16px 0" }}>
               <div><strong>Membership No</strong><br /><span style={{ color: "var(--muted)" }}>{panel.mno}</span></div>
-              <div><strong>Category</strong><br /><span style={{ color: "var(--muted)" }}>{panel.category}</span></div>
               <div><strong>Chapter</strong><br /><span style={{ color: "var(--muted)" }}>{panel.lga || "—"}</span></div>
               <div><strong>Expiry</strong><br /><span style={{ color: "var(--muted)" }}>{panel.expiry ? new Date(panel.expiry).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</span></div>
               <div><strong>Email</strong><br /><span style={{ color: "var(--muted)" }}>{panel.email}</span></div>
@@ -846,15 +837,6 @@ export default function AdminMembersPage() {
                 />
               </div>
               <div className="form-group">
-                <label>Category</label>
-                <select
-                  value="Member"
-                  disabled
-                >
-                  <option value="Member">Member</option>
-                </select>
-              </div>
-              <div className="form-group">
                 <label>Membership No</label>
                 <input
                   type="text"
@@ -907,12 +889,6 @@ export default function AdminMembersPage() {
                   <label>Password *</label>
                   <input type="password" required value={addForm.password}
                     onChange={(e) => setAddForm({ ...addForm, password: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Category</label>
-                  <select value="Member" disabled>
-                    <option value="Member">Member</option>
-                  </select>
                 </div>
                 <div className="form-group">
                   <label>Gender</label>

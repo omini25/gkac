@@ -21,20 +21,28 @@ export default function ElectionsPage() {
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  // Declaration modal
+  // Declaration modal (with form upload + payment proof)
   const [declareElection, setDeclareElection] = useState<Election | null>(null);
   const [declarePositions, setDeclarePositions] = useState<ElectionPosition[]>([]);
   const [declarePositionId, setDeclarePositionId] = useState("");
   const [declareStatement, setDeclareStatement] = useState("");
+  const [declareFormFile, setDeclareFormFile] = useState<File | null>(null);
+  const [declareProofFile, setDeclareProofFile] = useState<File | null>(null);
   const [declaring, setDeclaring] = useState(false);
 
-  // Nomination
+  // Nomination modal (nominate another member with form upload + payment proof)
   const [nominateElection, setNominateElection] = useState<Election | null>(null);
   const [nominatePositions, setNominatePositions] = useState<ElectionPosition[]>([]);
   const [nominatePositionId, setNominatePositionId] = useState("");
   const [nominateStatement, setNominateStatement] = useState("");
+  const [nominateFormFile, setNominateFormFile] = useState<File | null>(null);
+  const [nominateProofFile, setNominateProofFile] = useState<File | null>(null);
   const [nominating, setNominating] = useState(false);
   const [nominationFee, setNominationFee] = useState(50000);
+  // Nominee search for nomination
+  const [nomineeSearch, setNomineeSearch] = useState("");
+  const [nomineeResults, setNomineeResults] = useState<{ id: string; name: string; email: string; mno: string }[]>([]);
+  const [nomineeUserId, setNomineeUserId] = useState("");
 
   // Results modal
   const [results, setResults] = useState<ElectionResults | null>(null);
@@ -101,21 +109,94 @@ export default function ElectionsPage() {
     setSubmitting(false);
   }
 
-  // ─── Declare Interest ────────────────────────────────────────────────────
+  // ─── Declare Interest (with form upload + payment proof) ────────────────
   async function submitDeclaration() {
     if (!declareElection || !declarePositionId) return;
+    if (!declareFormFile) {
+      showToast("Please upload your completed declaration form.", "error");
+      return;
+    }
+    if (!declareProofFile) {
+      showToast("Please upload your proof of payment.", "error");
+      return;
+    }
     setDeclaring(true);
-    const res = await api.declareInterest(declareElection.id, declarePositionId, declareStatement || undefined);
+    const res = await api.submitDeclarationForm(
+      declareElection.id,
+      declarePositionId,
+      declareFormFile,
+      declareProofFile,
+      declareStatement || undefined
+    );
     if (res.data) {
-      showToast("Interest declared! Awaiting admin approval.", "success");
+      showToast("Declaration form submitted! Awaiting admin approval.", "success");
       setDeclareElection(null);
       setDeclarePositionId("");
       setDeclareStatement("");
+      setDeclareFormFile(null);
+      setDeclareProofFile(null);
       await loadVoteState(declareElection.id);
     } else {
-      showToast(res.error || "Failed to declare interest", "error");
+      showToast(res.error || "Failed to submit declaration", "error");
     }
     setDeclaring(false);
+  }
+
+  // ─── Nomination Form (nominate another member with form upload) ─────────
+  async function searchNomineeMembers(query: string) {
+    setNomineeSearch(query);
+    setNomineeUserId("");
+    if (query.length < 2) {
+      setNomineeResults([]);
+      return;
+    }
+    const res = await api.searchMembers(query);
+    if (res.data) {
+      setNomineeResults(res.data.members.map((m) => ({
+        id: m.id,
+        name: m.name,
+        email: m.email,
+        mno: m.mno,
+      })));
+    }
+  }
+
+  async function submitNomination() {
+    if (!nominateElection || !nominatePositionId || !nomineeUserId) {
+      showToast("Please select a position and nominee.", "error");
+      return;
+    }
+    if (!nominateFormFile) {
+      showToast("Please upload the completed nomination form.", "error");
+      return;
+    }
+    if (!nominateProofFile) {
+      showToast("Please upload your proof of payment.", "error");
+      return;
+    }
+    setNominating(true);
+    const res = await api.submitNominationForm(
+      nominateElection.id,
+      nominatePositionId,
+      nomineeUserId,
+      nominateFormFile,
+      nominateProofFile,
+      nominateStatement || undefined
+    );
+    setNominating(false);
+    if (res.data) {
+      showToast("Nomination form submitted! Awaiting admin approval.", "success");
+      setNominateElection(null);
+      setNominatePositionId("");
+      setNominateStatement("");
+      setNominateFormFile(null);
+      setNominateProofFile(null);
+      setNomineeSearch("");
+      setNomineeResults([]);
+      setNomineeUserId("");
+    } else {
+      showToast(res.error || "Failed to submit nomination", "error");
+    }
   }
 
   // ─── Results ─────────────────────────────────────────────────────────────
@@ -145,23 +226,18 @@ export default function ElectionsPage() {
 
   return (
     <>
-      {/* Quick actions: Expression of Interest & Nomination */}
+      {/* Quick actions: Election Forms */}
       <div className="card" style={{ marginBottom: "var(--space-4)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "var(--space-2)" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div>
-            <strong style={{ fontSize: 15 }}>2026/2028 Election Forms</strong>
-            <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
-              Submit your expression of interest or nomination form for the upcoming election.
+            <strong style={{ fontSize: 15 }}>📋 Election Forms</strong>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
+              Download, fill, and upload your Declaration of Interest or Nomination Form for the upcoming election.
             </p>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {/* <Link href="/dashboard/elections/expression-of-interest" className="btn btn-accent btn-sm">
-              📝 Expression of Interest
-            </Link> */}
-            <Link href="/dashboard/elections/nomination" className="btn btn-outline btn-sm">
-              📋 Election Forms
-            </Link>
-          </div>
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>
+            Use the "Declare Interest" and "Nomination Form" buttons below when a declaration/nomination period is open.
+          </span>
         </div>
       </div>
 
@@ -214,37 +290,48 @@ export default function ElectionsPage() {
             const nomEnd = el.nomination_end ? new Date(el.nomination_end) : null;
             const isNominationOpen = nomStart && nomEnd && now >= nomStart && now <= nomEnd;
 
-            const hasApprovedDeclaration = myDeclarations.some((d) => d.status === "approved");
-
             return (
             <div key={el.id} className="card" style={{ marginBottom: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
-                <div>
-                  <strong style={{ fontSize: 16 }}>{el.title}</strong>
-                  <br />
-                  <span style={{ fontSize: 13, color: "var(--muted)" }}>{el.description || ""}</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                  <strong style={{ fontSize: 16, flex: 1, wordBreak: "break-word" }}>{el.title}</strong>
+                  <span className="status-badge status-pending" style={{ flexShrink: 0 }}>{el.status === "draft" ? "Draft" : "Upcoming"}</span>
+                </div>
+                <span style={{ fontSize: 13, color: "var(--muted)" }}>{el.description || ""}</span>
+                <div style={{ fontSize: 12, lineHeight: 1.7 }}>
                   {el.start_date && (
-                    <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>
+                    <div style={{ color: "var(--muted)" }}>
                       🗓 Voting opens: {formatDate(el.start_date)}
-                    </p>
+                    </div>
                   )}
                   {declStart && declEnd && (
-                    <p style={{ fontSize: 12, color: isDeclarationOpen ? "var(--accent)" : "var(--muted)", marginTop: 4 }}>
-                      📝 Declaration period: {formatDate(declStart.toISOString())} – {formatDate(declEnd.toISOString())}
+                    <div style={{ color: isDeclarationOpen ? "var(--accent)" : "var(--muted)" }}>
+                      📝 Declaration: {formatDate(declStart.toISOString())} – {formatDate(declEnd.toISOString())}
                       {isDeclarationOpen && <span className="badge badge-active" style={{ marginLeft: 6 }}>Open</span>}
-                    </p>
+                    </div>
                   )}
                   {nomStart && nomEnd && (
-                    <p style={{ fontSize: 12, color: isNominationOpen ? "var(--accent)" : "var(--muted)", marginTop: 4 }}>
-                      📋 Nomination period: {formatDate(nomStart.toISOString())} – {formatDate(nomEnd.toISOString())}
+                    <div style={{ color: isNominationOpen ? "var(--accent)" : "var(--muted)" }}>
+                      📋 Nomination: {formatDate(nomStart.toISOString())} – {formatDate(nomEnd.toISOString())}
                       {isNominationOpen && <span className="badge badge-active" style={{ marginLeft: 6 }}>Open</span>}
-                    </p>
+                    </div>
                   )}
                 </div>
-                <span className="status-badge status-pending">{el.status === "draft" ? "Draft" : "Upcoming"}</span>
               </div>
 
               <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                {myDeclarations.length > 0 && (
+                  <div style={{ width: "100%", fontSize: 13, marginBottom: 4 }}>
+                    <strong>My Declarations:</strong>
+                    <ul style={{ margin: "4px 0 0", paddingLeft: 20 }}>
+                      {myDeclarations.map((d) => (
+                        <li key={d.id}>
+                          {d.position_title || ""} — <span className={d.status === "approved" ? "badge badge-active" : d.status === "rejected" ? "badge badge-expired" : "badge badge-pending"}>{d.status}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {isDeclarationOpen && (
                   <button
                     className="btn btn-accent btn-sm"
@@ -262,13 +349,17 @@ export default function ElectionsPage() {
                     📝 Declare Interest
                   </button>
                 )}
-                {hasApprovedDeclaration && isNominationOpen && (
+                {isNominationOpen && (
                   <button
                     className="btn btn-outline btn-sm"
                     onClick={async () => {
                       setNominateElection(el);
                       setNominatePositionId("");
                       setNominateStatement("");
+                      setNominateFormFile(null);
+                      setNomineeSearch("");
+                      setNomineeResults([]);
+                      setNomineeUserId("");
                       const posRes = await api.getElection(el.id);
                       if (posRes.data) {
                         setNominatePositions(posRes.data.election.positions || []);
@@ -280,18 +371,6 @@ export default function ElectionsPage() {
                 )}
               </div>
 
-              {myDeclarations.length > 0 && (
-                <div style={{ marginTop: 12, fontSize: 13 }}>
-                  <strong>My Declarations:</strong>
-                  <ul style={{ marginTop: 4, paddingLeft: 20 }}>
-                    {myDeclarations.map((d) => (
-                      <li key={d.id}>
-                        {d.position_title || ""} — <span className={d.status === "approved" ? "badge badge-active" : d.status === "rejected" ? "badge badge-expired" : "badge badge-pending"}>{d.status}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
             );
           })
@@ -320,7 +399,7 @@ export default function ElectionsPage() {
       {/* ═══ BALLOT MODAL ═══ */}
       {ballotElection && (
         <div className="modal-overlay open" onClick={() => setBallotElection(null)}>
-          <div className="modal" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 600, width: "calc(100% - 32px)", margin: "16px auto", maxHeight: "calc(100vh - 32px)" }} onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setBallotElection(null)}>✕</button>
             <h3>{ballotElection.title}</h3>
             <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 20 }}>
@@ -365,14 +444,14 @@ export default function ElectionsPage() {
                           disabled={alreadyVoted}
                           style={{ accentColor: "var(--green)" }}
                         />
-                        <div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <strong>{c.first_name} {c.last_name}</strong>
                           <br />
                           <span style={{ fontSize: 12, color: "var(--muted)" }}>{c.membership_category_name} · {c.membership_code}</span>
                         </div>
                         {c.statement && (
-                          <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: "auto", maxWidth: "40%", textAlign: "right" }}>
-                            "{c.statement}"
+                          <span style={{ fontSize: 12, color: "var(--muted)", maxWidth: "35%", textAlign: "right", flexShrink: 0 }}>
+                            "{c.statement.substring(0, 60)}{c.statement.length > 60 ? "…" : ""}"
                           </span>
                         )}
                       </label>
@@ -399,15 +478,42 @@ export default function ElectionsPage() {
         </div>
       )}
 
-      {/* ═══ DECLARE INTEREST MODAL ═══ */}
+      {/* ═══ DECLARE INTEREST MODAL (with form upload + payment proof) ═══ */}
       {declareElection && (
-        <div className="modal-overlay open" onClick={() => { setDeclareElection(null); setDeclarePositionId(""); setDeclareStatement(""); }}>
-          <div className="modal" style={{ maxWidth: 500 }} onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => { setDeclareElection(null); setDeclarePositionId(""); setDeclareStatement(""); }}>✕</button>
-            <h3>Declare Interest</h3>
+        <div className="modal-overlay open" onClick={() => { setDeclareElection(null); setDeclarePositionId(""); setDeclareStatement(""); setDeclareFormFile(null); setDeclareProofFile(null); }}>
+          <div className="modal" style={{ maxWidth: 550, width: "calc(100% - 32px)", margin: "16px auto", maxHeight: "calc(100vh - 32px)", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => { setDeclareElection(null); setDeclarePositionId(""); setDeclareStatement(""); setDeclareFormFile(null); setDeclareProofFile(null); }}>✕</button>
+            <h3>📝 Declaration of Interest</h3>
             <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
-              {declareElection.title} — Select the position you wish to contest.
+              {declareElection.title} — Download the form, fill it out, and upload it.
             </p>
+
+            {/* Instructions */}
+            <div style={{
+              padding: 12, marginBottom: 16, borderRadius: "var(--radius-md)",
+              background: "var(--bg)", border: "1px solid var(--border)",
+              fontSize: 13,
+            }}>
+              <strong>How it works:</strong>
+              <ol style={{ margin: "8px 0 0", paddingLeft: 20 }}>
+                <li>Select the position you wish to contest</li>
+                <li><strong>Download</strong> the Declaration of Interest form below</li>
+                <li>Fill out the form (print &amp; sign or fill digitally)</li>
+                <li><strong>Upload</strong> the completed form below</li>
+                <li>Submit — admin will review and respond</li>
+              </ol>
+              <div style={{ marginTop: 10 }}>
+                <a
+                  href="/forms/declaration-of-interest.html"
+                  className="btn btn-outline btn-sm"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                >
+                  📄 Download Declaration of Interest Form (PDF)
+                </a>
+              </div>
+            </div>
 
             <div className="form-group">
               <label>Position *</label>
@@ -430,25 +536,148 @@ export default function ElectionsPage() {
             <div className="form-group">
               <label>Personal Statement (optional)</label>
               <textarea
-                rows={4}
+                rows={3}
                 value={declareStatement}
                 onChange={(e) => setDeclareStatement(e.target.value)}
                 placeholder="Tell members why you're running for this position…"
               />
             </div>
 
-            <div style={{ display: "flex", gap: 8 }}>
+            {/* File Upload */}
+            <div className="form-group">
+              <label>Upload Completed Form *</label>
+              <div style={{
+                border: "2px dashed var(--border-strong)",
+                borderRadius: "var(--radius-md)",
+                padding: 16,
+                textAlign: "center",
+                background: declareFormFile ? "var(--green-light)" : "var(--bg)",
+                cursor: "pointer",
+                minHeight: 80,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+                onClick={() => document.getElementById("declare-file-input")?.click()}
+              >
+                {declareFormFile ? (
+                  <div style={{ wordBreak: "break-word", width: "100%" }}>
+                    <span style={{ fontSize: 24 }}>✅</span>
+                    <p style={{ margin: "4px 0", fontSize: 13 }}><strong>{declareFormFile.name}</strong></p>
+                    <p style={{ fontSize: 12, color: "var(--muted)" }}>{(declareFormFile.size / 1024).toFixed(1)} KB</p>
+                    <button
+                      className="btn btn-ghost btn-xs"
+                      onClick={(e) => { e.stopPropagation(); setDeclareFormFile(null); }}
+                      style={{ marginTop: 4 }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <span style={{ fontSize: 28 }}>📄</span>
+                    <p style={{ margin: "4px 0", fontSize: 13, color: "var(--muted)" }}>
+                      Tap to select your completed form<br />
+                      <span style={{ fontSize: 11 }}>PDF, DOC, DOCX, or image (max 20 MB)</span>
+                    </p>
+                  </div>
+                )}
+                <input
+                  id="declare-file-input"
+                  type="file"
+                  accept=".pdf,.doc,.docx,image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setDeclareFormFile(e.target.files[0]);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* 💳 Payment Info */}
+            <div style={{
+              padding: 12, marginBottom: 16, borderRadius: "var(--radius-md)",
+              background: "var(--bg)", border: "1px solid var(--border)",
+              fontSize: 13,
+            }}>
+              <strong>💳 Declaration Fee:</strong> Pay <strong>₦50,000</strong> to the account below, then upload your proof of payment.
+              <div style={{
+                marginTop: 8, padding: 10, borderRadius: "var(--radius-md)",
+                background: "var(--green-light)",
+              }}>
+                <p style={{ fontWeight: 700, margin: 0 }}>Polaris bank</p>
+                <p style={{ fontSize: "20px", fontWeight: 700, margin: "4px 0", fontFamily: "var(--font-mono)" }}>
+                  409 123 9056
+                </p>
+                <p style={{ margin: 0 }}>GKAC</p>
+              </div>
+            </div>
+
+            {/* Proof of Payment Upload */}
+            <div className="form-group">
+              <label>Upload Proof of Payment *</label>
+              <div style={{
+                border: "2px dashed var(--border-strong)",
+                borderRadius: "var(--radius-md)",
+                padding: 16,
+                textAlign: "center",
+                background: declareProofFile ? "var(--green-light)" : "var(--bg)",
+                cursor: "pointer",
+                minHeight: 80,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+                onClick={() => document.getElementById("declare-proof-input")?.click()}
+              >
+                {declareProofFile ? (
+                  <div style={{ wordBreak: "break-word", width: "100%" }}>
+                    <span style={{ fontSize: 24 }}>✅</span>
+                    <p style={{ margin: "4px 0", fontSize: 13 }}><strong>{declareProofFile.name}</strong></p>
+                    <p style={{ fontSize: 12, color: "var(--muted)" }}>{(declareProofFile.size / 1024).toFixed(1)} KB</p>
+                    <button
+                      className="btn btn-ghost btn-xs"
+                      onClick={(e) => { e.stopPropagation(); setDeclareProofFile(null); }}
+                      style={{ marginTop: 4 }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <span style={{ fontSize: 28 }}>📸</span>
+                    <p style={{ margin: "4px 0", fontSize: 13, color: "var(--muted)" }}>
+                      Tap to upload your payment receipt or screenshot<br />
+                      <span style={{ fontSize: 11 }}>PDF, JPG, PNG (max 5 MB)</span>
+                    </p>
+                  </div>
+                )}
+                <input
+                  id="declare-proof-input"
+                  type="file"
+                  accept=".pdf,image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setDeclareProofFile(e.target.files[0]);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button
                 className="btn btn-accent"
+                style={{ flex: 1, minWidth: 140 }}
                 onClick={submitDeclaration}
-                disabled={declaring || !declarePositionId}
+                disabled={declaring || !declarePositionId || !declareFormFile || !declareProofFile}
               >
                 {declaring ? "Submitting…" : "Submit Declaration"}
               </button>
-              <button className="btn btn-outline" onClick={() => window.print()}>
-                📄 Download PDF
-              </button>
-              <button className="btn btn-ghost" onClick={() => { setDeclareElection(null); setDeclarePositionId(""); setDeclareStatement(""); }}>
+              <button className="btn btn-ghost" onClick={() => { setDeclareElection(null); setDeclarePositionId(""); setDeclareStatement(""); setDeclareFormFile(null); setDeclareProofFile(null); }}>
                 Cancel
               </button>
             </div>
@@ -456,26 +685,42 @@ export default function ElectionsPage() {
         </div>
       )}
 
-      {/* ═══ NOMINATION MODAL ═══ */}
+      {/* ═══ NOMINATION MODAL (nominate another member with form upload + payment proof) ═══ */}
       {nominateElection && (
-        <div className="modal-overlay open" onClick={() => { setNominateElection(null); setNominatePositionId(""); setNominateStatement(""); }}>
-          <div className="modal" style={{ maxWidth: 550 }} onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => { setNominateElection(null); setNominatePositionId(""); setNominateStatement(""); }}>✕</button>
+        <div className="modal-overlay open" onClick={() => { setNominateElection(null); setNominatePositionId(""); setNominateStatement(""); setNominateFormFile(null); setNominateProofFile(null); setNomineeSearch(""); setNomineeResults([]); setNomineeUserId(""); }}>
+          <div className="modal" style={{ maxWidth: 550, width: "calc(100% - 32px)", margin: "16px auto", maxHeight: "calc(100vh - 32px)", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => { setNominateElection(null); setNominatePositionId(""); setNominateStatement(""); setNominateFormFile(null); setNominateProofFile(null); setNomineeSearch(""); setNomineeResults([]); setNomineeUserId(""); }}>✕</button>
             <h3>📋 Nomination Form</h3>
             <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
-              {nominateElection.title} — Complete your nomination. Your expression of interest has been approved.
+              {nominateElection.title} — Nominate a fellow member for a position. Download the form, fill it, and upload.
             </p>
 
-            {/* Fee info */}
+            {/* Instructions */}
             <div style={{
               padding: 12, marginBottom: 16, borderRadius: "var(--radius-md)",
-              background: "var(--green-light)", border: "1px solid var(--green)",
+              background: "var(--bg)", border: "1px solid var(--border)",
               fontSize: 13,
             }}>
-              <strong>Nomination Fee:</strong>
-              <span style={{ marginLeft: 8 }}>
-                President: <strong>₦100,000</strong> | Other Positions: <strong>₦50,000</strong>
-              </span>
+              <strong>How it works:</strong>
+              <ol style={{ margin: "8px 0 0", paddingLeft: 20 }}>
+                <li>Select the position you wish to nominate someone for</li>
+                <li>Search for and select the member you are nominating</li>
+                <li><strong>Download</strong> the Nomination form below</li>
+                <li>Fill out the form with the nominee's details and your details as the nominator</li>
+                <li><strong>Upload</strong> the completed form below</li>
+                <li>Submit — admin will review and respond</li>
+              </ol>
+              <div style={{ marginTop: 10 }}>
+                <a
+                  href="/forms/nomination-form.html"
+                  className="btn btn-outline btn-sm"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                >
+                  📄 Download Nomination Form (PDF)
+                </a>
+              </div>
             </div>
 
             <div className="form-group">
@@ -497,49 +742,190 @@ export default function ElectionsPage() {
               </select>
             </div>
 
+            {/* Nominee Search */}
             <div className="form-group">
-              <label>Personal Statement / Manifesto</label>
+              <label>Nominate Member *</label>
+              <input
+                type="text"
+                placeholder="Search for a member by name, email, or membership no…"
+                value={nomineeSearch}
+                onChange={(e) => searchNomineeMembers(e.target.value)}
+              />
+              {nomineeResults.length > 0 && (
+                <div style={{
+                  marginTop: 4, border: "1px solid var(--border)", borderRadius: "var(--radius-md)",
+                  maxHeight: 200, overflowY: "auto", background: "var(--bg)"
+                }}>
+                  {nomineeResults.map((m) => (
+                    <div
+                      key={m.id}
+                      onClick={() => {
+                        setNomineeUserId(m.id);
+                        setNomineeSearch(`${m.name} (${m.email})`);
+                        setNomineeResults([]);
+                      }}
+                      style={{
+                        padding: "10px 12px", cursor: "pointer", fontSize: 13,
+                        borderBottom: "1px solid var(--border)", background: nomineeUserId === m.id ? "var(--green-light)" : "transparent",
+                      }}
+                    >
+                      <div><strong>{m.name}</strong></div>
+                      <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 2 }}>
+                        {m.email} · {m.mno}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {nomineeUserId && !nomineeResults.length && (
+                <span style={{ fontSize: 12, color: "var(--green)" }}>✅ Member selected</span>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label>Your Statement (optional)</label>
               <textarea
-                rows={4}
+                rows={3}
                 value={nominateStatement}
                 onChange={(e) => setNominateStatement(e.target.value)}
-                placeholder="Tell members why you're the right candidate…"
+                placeholder="Why do you think this member is suitable for the position?"
               />
             </div>
 
+            {/* File Upload */}
+            <div className="form-group">
+              <label>Upload Completed Nomination Form *</label>
+              <div style={{
+                border: "2px dashed var(--border-strong)",
+                borderRadius: "var(--radius-md)",
+                padding: 16,
+                textAlign: "center",
+                background: nominateFormFile ? "var(--green-light)" : "var(--bg)",
+                cursor: "pointer",
+                minHeight: 80,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+                onClick={() => document.getElementById("nominate-file-input")?.click()}
+              >
+                {nominateFormFile ? (
+                  <div style={{ wordBreak: "break-word", width: "100%" }}>
+                    <span style={{ fontSize: 24 }}>✅</span>
+                    <p style={{ margin: "4px 0", fontSize: 13 }}><strong>{nominateFormFile.name}</strong></p>
+                    <p style={{ fontSize: 12, color: "var(--muted)" }}>{(nominateFormFile.size / 1024).toFixed(1)} KB</p>
+                    <button
+                      className="btn btn-ghost btn-xs"
+                      onClick={(e) => { e.stopPropagation(); setNominateFormFile(null); }}
+                      style={{ marginTop: 4 }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <span style={{ fontSize: 28 }}>📄</span>
+                    <p style={{ margin: "4px 0", fontSize: 13, color: "var(--muted)" }}>
+                      Tap to select the completed nomination form<br />
+                      <span style={{ fontSize: 11 }}>PDF, DOC, DOCX, or image (max 20 MB)</span>
+                    </p>
+                  </div>
+                )}
+                <input
+                  id="nominate-file-input"
+                  type="file"
+                  accept=".pdf,.doc,.docx,image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setNominateFormFile(e.target.files[0]);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
             <div style={{
-              padding: 10, marginBottom: 16, borderRadius: "var(--radius-md)",
+              padding: 12, marginBottom: 16, borderRadius: "var(--radius-md)",
               background: "var(--bg)", border: "1px solid var(--border)",
               fontSize: 13,
             }}>
-              <strong>💳 Payment:</strong> Pay <strong>₦{(nominationFee).toLocaleString()}</strong> to <strong>Opay: 703 5330 954</strong> (Oluyemi Akintayo)
+              <strong>💳 Nomination Fee:</strong> Pay <strong>₦{(nominationFee).toLocaleString()}</strong> to the account below, then upload your proof of payment.
+              <div style={{
+                marginTop: 8, padding: 10, borderRadius: "var(--radius-md)",
+                background: "var(--green-light)",
+              }}>
+                <p style={{ fontWeight: 700, margin: 0 }}>Polaris Bank</p>
+                <p style={{ fontSize: "20px", fontWeight: 700, margin: "4px 0", fontFamily: "var(--font-mono)" }}>
+                  409 123 9056
+                </p>
+                <p style={{ margin: 0 }}>GKAC</p>
+              </div>
             </div>
 
-            <div style={{ display: "flex", gap: 8 }}>
+            {/* Proof of Payment Upload */}
+            <div className="form-group">
+              <label>Upload Proof of Payment *</label>
+              <div style={{
+                border: "2px dashed var(--border-strong)",
+                borderRadius: "var(--radius-md)",
+                padding: 16,
+                textAlign: "center",
+                background: nominateProofFile ? "var(--green-light)" : "var(--bg)",
+                cursor: "pointer",
+                minHeight: 80,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+                onClick={() => document.getElementById("nominate-proof-input")?.click()}
+              >
+                {nominateProofFile ? (
+                  <div style={{ wordBreak: "break-word", width: "100%" }}>
+                    <span style={{ fontSize: 24 }}>✅</span>
+                    <p style={{ margin: "4px 0", fontSize: 13 }}><strong>{nominateProofFile.name}</strong></p>
+                    <p style={{ fontSize: 12, color: "var(--muted)" }}>{(nominateProofFile.size / 1024).toFixed(1)} KB</p>
+                    <button
+                      className="btn btn-ghost btn-xs"
+                      onClick={(e) => { e.stopPropagation(); setNominateProofFile(null); }}
+                      style={{ marginTop: 4 }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <span style={{ fontSize: 28 }}>📸</span>
+                    <p style={{ margin: "4px 0", fontSize: 13, color: "var(--muted)" }}>
+                      Tap to upload your payment receipt or screenshot<br />
+                      <span style={{ fontSize: 11 }}>PDF, JPG, PNG (max 5 MB)</span>
+                    </p>
+                  </div>
+                )}
+                <input
+                  id="nominate-proof-input"
+                  type="file"
+                  accept=".pdf,image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setNominateProofFile(e.target.files[0]);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button
                 className="btn btn-accent"
-                onClick={async () => {
-                  if (!nominateElection || !nominatePositionId) return;
-                  setNominating(true);
-                  const res = await api.declareInterest(nominateElection.id, nominatePositionId, nominateStatement || undefined);
-                  setNominating(false);
-                  if (res.data) {
-                    showToast("Nomination submitted! Awaiting processing.", "success");
-                    setNominateElection(null);
-                    setNominatePositionId("");
-                    setNominateStatement("");
-                  } else {
-                    showToast(res.error || "Failed to submit nomination", "error");
-                  }
-                }}
-                disabled={nominating || !nominatePositionId}
+                style={{ flex: 1, minWidth: 140 }}
+                onClick={submitNomination}
+                disabled={nominating || !nominatePositionId || !nomineeUserId || !nominateFormFile || !nominateProofFile}
               >
                 {nominating ? "Submitting…" : "Submit Nomination"}
               </button>
-              <button className="btn btn-outline" onClick={() => window.print()}>
-                📄 Download PDF
-              </button>
-              <button className="btn btn-ghost" onClick={() => { setNominateElection(null); setNominatePositionId(""); setNominateStatement(""); }}>
+              <button className="btn btn-ghost" onClick={() => { setNominateElection(null); setNominatePositionId(""); setNominateStatement(""); setNominateFormFile(null); setNominateProofFile(null); setNomineeSearch(""); setNomineeResults([]); setNomineeUserId(""); }}>
                 Cancel
               </button>
             </div>
@@ -550,7 +936,7 @@ export default function ElectionsPage() {
       {/* ═══ RESULTS MODAL ═══ */}
       {results && (
         <div className="modal-overlay open" onClick={() => setResults(null)}>
-          <div className="modal" style={{ maxWidth: 600, maxHeight: "90vh" }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 600, width: "calc(100% - 32px)", margin: "16px auto", maxHeight: "calc(100vh - 32px)" }} onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setResults(null)}>✕</button>
             <h3 style={{ marginBottom: 4 }}>{results.election.title}</h3>
             <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
@@ -559,7 +945,7 @@ export default function ElectionsPage() {
             </p>
 
             {/* Summary */}
-            <div className="stats-row" style={{ marginBottom: 16, gridTemplateColumns: "1fr 1fr 1fr" }}>
+            <div className="stats-row" style={{ marginBottom: 16, gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))" }}>
               <div className="stat-card" style={{ padding: 12 }}>
                 <div className="stat-value" style={{ fontSize: 22 }}>{results.summary.eligibleVoters}</div>
                 <div className="stat-label">Eligible</div>
@@ -594,13 +980,13 @@ export default function ElectionsPage() {
                       borderRadius: "var(--radius-md)",
                       border: i === 0 && pos.totalVotes > 0 ? "1px solid var(--green)" : "1px solid transparent",
                     }}>
-                      <div style={{ fontSize: 14 }}>
+                      <div style={{ fontSize: 14, wordBreak: "break-word", flex: 1, minWidth: 0, paddingRight: 8 }}>
                         {c.firstName} {c.lastName}
                         {i === 0 && results.election.status === "closed" && pos.totalVotes > 0 && (
                           <span className="badge badge-active" style={{ marginLeft: 6 }}>Winner</span>
                         )}
                       </div>
-                      <div style={{ textAlign: "right" }}>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
                         <strong>{c.voteCount}</strong>
                         <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 4 }}>({c.percentage}%)</span>
                       </div>
@@ -634,20 +1020,19 @@ function ElectionCard({
 }) {
   return (
     <div className="card" style={{ marginBottom: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
-        <div>
-          <strong style={{ fontSize: 16 }}>{election.title}</strong>
-          <br />
-          <span style={{ fontSize: 13, color: "var(--muted)" }}>{election.description || ""}</span>
-          <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>
-            {election.start_date && <>🗓 {formatDate(election.start_date)}</>}
-            {election.end_date && <> – {formatDate(election.end_date)}</>}
-            {election.total_votes > 0 && <> · 🗳 {election.total_votes} votes cast</>}
-          </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+          <strong style={{ fontSize: 16, flex: 1, wordBreak: "break-word" }}>{election.title}</strong>
+          <span className={`status-badge ${election.status === "active" ? "status-active" : election.status === "closed" ? "status-expired" : "status-pending"}`} style={{ flexShrink: 0 }}>
+            {election.status === "active" ? "Voting Open" : election.status === "closed" ? "Closed" : election.status}
+          </span>
         </div>
-        <span className={`status-badge ${election.status === "active" ? "status-active" : election.status === "closed" ? "status-expired" : "status-pending"}`}>
-          {election.status === "active" ? "Voting Open" : election.status === "closed" ? "Closed" : election.status}
-        </span>
+        <span style={{ fontSize: 13, color: "var(--muted)" }}>{election.description || ""}</span>
+        <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>
+          {election.start_date && <>🗓 {formatDate(election.start_date)}</>}
+          {election.end_date && <> – {formatDate(election.end_date)}</>}
+          {election.total_votes > 0 && <> · 🗳 {election.total_votes} votes cast</>}
+        </p>
       </div>
 
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>

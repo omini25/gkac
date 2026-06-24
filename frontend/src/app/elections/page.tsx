@@ -8,54 +8,46 @@ import ImageGallery from "@/components/ImageGallery";
 // ─── Election Calendar Timeline Data ────────────────────────────────────────
 const ELECTION_TIMELINE = [
   {
-    date: "8th – 17th June 2026",
-    title: "Expression of Interest",
-    description: "Members interested in contesting for any position must submit their Expression of Interest within this period.",
-    fee: "₦20,000",
+    date: "15th – 23rd June 2026",
+    title: "Expression of Interest & Nomination",
+    description: "Qualified candidates are to fill their Expression of Interest and Nomination forms. To vote and to be voted for, all forms must be submitted within this period.",
     status: "active",
   },
   {
-    date: "15th – 24th June 2026",
-    title: "Purchase of Nomination Form",
-    description: "Qualified candidates purchase their nomination forms for their desired positions.",
-    fee: "President: ₦100,000 | Other Positions: ₦50,000",
-    status: "active",
-  },
-  {
-    date: "2nd July 2026",
-    title: "Release of Eligible Voters List",
-    description: "The Electoral Committee will publish the list of all eligible voters for the election.",
+    date: "End of July 2026",
+    title: "Release of Eligible Voters & Qualified Candidates",
+    description: "Upload of eligible voters and qualified candidates to the electorate for verification.",
     status: "upcoming",
   },
   {
-    date: "2nd July 2026",
-    title: "Screening of Candidates",
-    description: "All candidates will be screened by the Electoral Committee to verify their eligibility and credentials.",
-    status: "upcoming",
-  },
-  {
-    date: "2nd July 2026",
-    title: "Release of Qualified Candidates Names",
-    description: "The official list of qualified candidates for each position will be published.",
-    status: "upcoming",
-  },
-  {
-    date: "2nd – 3rd July 2026",
-    title: "Manifestos",
-    description: "Qualified candidates present their manifestos to the electorate.",
-    status: "upcoming",
-  },
-  {
-    date: "Saturday, 4th July 2026",
+    date: "To Be Announced",
     title: "🗳️ Election Day",
-    description: "Voting opens from 10:00 AM to 4:00 PM. All eligible voters are urged to participate.",
+    description: "Voting process begins at 10:00 AM and closes at 4:00 PM. All eligible voters are required to participate in this election.",
     time: "10:00 AM – 4:00 PM",
     status: "upcoming",
   },
   {
+    date: "After Close of Voting",
+    title: "Announcement of Results",
+    description: "Electoral committee to collate and announce all duly elected officials after voting ends.",
+    status: "upcoming",
+  },
+  {
+    date: "After Close of Voting",
+    title: "Presentation of Certificate of Return",
+    description: "All elected officers are required to join the election situation room immediately after the close of voting for the collection of their certificate of return.",
+    status: "upcoming",
+  },
+  {
+    date: "5th – 6th July 2026",
+    title: "Submission of Election Petition",
+    description: "All aggrieved candidates are to submit their petition to the electoral committee. The petition must contain the petitioner's name, statement of purpose, and reason for petition. The election petition panel will sit for 2 weeks.",
+    status: "upcoming",
+  },
+  {
     date: "Saturday, 25th July 2026",
-    title: "Swearing-In Ceremony",
-    description: "The newly elected Executive Committee will be sworn in. All members are invited.",
+    title: "🤝 Swearing-In Ceremony",
+    description: "All newly elected executive committee members will be sworn in at the Annual General Meeting slated for July 25th, 2026.",
     status: "upcoming",
   },
 ];
@@ -204,7 +196,7 @@ export default function PublicElectionsPage() {
         </div>
 
         {/* Payment Info */}
-        <div className="card" style={{ maxWidth: 600, margin: "0 auto var(--space-4)", textAlign: "center" }}>
+        {/* <div className="card" style={{ maxWidth: 600, margin: "0 auto var(--space-4)", textAlign: "center" }}>
           <h4 style={{ marginBottom: "var(--space-1)" }}>Election Process Payment Account</h4>
           <div style={{
             background: "var(--green-light)", padding: "var(--space-2)",
@@ -219,14 +211,14 @@ export default function PublicElectionsPage() {
           <p style={{ color: "var(--muted)", fontSize: "13px", marginTop: "var(--space-1)" }}>
             PRO, Electoral Committee — Ambassador Oluyemi Akintayo (Pemisire)
           </p>
-        </div>
+        </div> */}
 
         {/* Action Buttons */}
         <div style={{ textAlign: "center", marginBottom: "var(--space-4)", display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
-          <Link href="/dashboard/elections/expression-of-interest" className="btn btn-accent btn-lg">
-            📝 Expression of Interest
+          <Link href="/dashboard/elections" className="btn btn-accent btn-lg">
+            📝 Declaration of Interest
           </Link>
-          <Link href="/dashboard/elections/nomination" className="btn btn-outline btn-lg">
+          <Link href="/dashboard/elections" className="btn btn-outline btn-lg">
             📋 Nomination Form
           </Link>
         </div>
