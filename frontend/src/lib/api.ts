@@ -682,12 +682,13 @@ export const api = {
     return request<{ posters: any[] }>(`/elections/posters${query}`);
   },
 
-  uploadPoster: (posterFile: File, electionId?: string, title?: string) => {
+  uploadPosters: (posterFiles: File[], electionId?: string) => {
     const formData = new FormData();
-    formData.append("poster", posterFile);
+    for (const f of posterFiles) {
+      formData.append("posters", f);
+    }
     if (electionId) formData.append("election_id", electionId);
-    if (title) formData.append("title", title);
-    return request<{ poster: any }>("/elections/posters/upload", {
+    return request<{ posters: any[] }>("/elections/posters/upload", {
       method: "POST",
       headers: {},
       body: formData,

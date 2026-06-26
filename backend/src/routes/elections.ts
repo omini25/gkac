@@ -1416,7 +1416,7 @@ const uploadPoster = multer({
 
 // ─── POST /api/elections/posters/upload (admin) ─────────────────────────
 electionsRouter.post("/elections/posters/upload", (req: Request, res: Response) => {
-  uploadPoster.single("poster")(req, res, async (err) => {
+  uploadPoster.array("posters", 10)(req, res, async (err) => {
     if (err) {
       if (err instanceof multer.MulterError) {
         return res.status(400).json({ error: `Upload error: ${err.message}` });
@@ -1424,8 +1424,9 @@ electionsRouter.post("/elections/posters/upload", (req: Request, res: Response) 
       return res.status(400).json({ error: err.message });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded." });
+    const files = req.files as Express.Multer.File[] | undefined;
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: "No files uploaded." });
     }
 
     const auth = authenticate(req, res);
@@ -1434,27 +1435,32 @@ electionsRouter.post("/elections/posters/upload", (req: Request, res: Response) 
 
     try {
       const db = getDbPool();
-      const { election_id, title, sort_order } = req.body;
+      const { election_id, sort_order } = req.body;
 
-      const result = await db.query(
-        `INSERT INTO election_posters (election_id, title, filename, original_name, mime_type, file_size, sort_order, uploaded_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-        [
-          election_id || null,
-          title?.trim() || null,
-          req.file.filename,
-          req.file.originalname,
-          req.file.mimetype,
-          req.file.size,
-          sort_order ? parseInt(sort_order, 10) : 0,
-          auth.userId,
-        ]
-      );
+      const inserted: any[] = [];
 
-      return res.status(201).json({ poster: result.rows[0] });
+      for (const file of files) {
+        const result = await db.query(
+          `INSERT INTO election_posters (election_id, title, filename, original_name, mime_type, file_size, sort_order, uploaded_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+          [
+            election_id || null,
+            null, // title — not used per-image in multi-upload
+            file.filename,
+            file.originalname,
+            file.mimetype,
+            file.size,
+            sort_order ? parseInt(sort_order, 10) : 0,
+            auth.userId,
+          ]
+        );
+        inserted.push(result.rows[0]);
+      }
+
+      return res.status(201).json({ posters: inserted });
     } catch (dbErr) {
-      console.error("Error saving poster:", dbErr);
-      return res.status(500).json({ error: "Failed to save poster." });
+      console.error("Error saving posters:", dbErr);
+      return res.status(500).json({ error: "Failed to save posters." });
     }
   });
 });

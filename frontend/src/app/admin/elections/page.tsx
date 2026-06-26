@@ -68,6 +68,20 @@ export default function AdminElectionsPage() {
   const [postersLoading, setPostersLoading] = useState(false);
   const [posterUploading, setPosterUploading] = useState(false);
 
+  // Action menu
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  // Close action menu on outside click
+  useEffect(() => {
+    if (!openMenuId) return;
+    function handleClick(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".dropdown-wrapper")) setOpenMenuId(null);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [openMenuId]);
+
   // Detail view
   const [selectedElection, setSelectedElection] = useState<ElectionDetail | null>(null);
 
@@ -478,16 +492,17 @@ export default function AdminElectionsPage() {
     setPostersLoading(false);
   }
 
-  async function handleUploadPoster(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!e.target.files || !e.target.files[0] || !showPosters) return;
-    const file = e.target.files[0];
+  async function handleUploadPosters(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files || e.target.files.length === 0 || !showPosters) return;
+    const files = Array.from(e.target.files);
+    const count = files.length;
     setPosterUploading(true);
-    const res = await api.uploadPoster(file, showPosters);
+    const res = await api.uploadPosters(files, showPosters);
     if (res.data) {
-      showToast("Poster uploaded", "success");
+      showToast(`${count} poster${count > 1 ? "s" : ""} uploaded`, "success");
       openPosters(showPosters, posterElectionTitle);
     } else {
-      showToast(res.error || "Failed to upload poster", "error");
+      showToast(res.error || "Failed to upload posters", "error");
       setPosterUploading(false);
     }
   }
@@ -566,22 +581,38 @@ export default function AdminElectionsPage() {
                       </td>
                       <td><span className={statusBadge(el.status)}>{el.status}</span></td>
                       <td className="actions">
-                        <button className="btn btn-outline btn-xs" onClick={() => openPositions(el.id)}>Positions</button>
-                        <button className="btn btn-outline btn-xs" onClick={() => openDeclarations(el.id)}>Declarations</button>
-                        <button className="btn btn-outline btn-xs" onClick={() => openPosters(el.id, el.title)}>Posters</button>
-                        <button className="btn btn-outline btn-xs" onClick={() => openEligibleVoters(el.id)}>Voters</button>
-                        <button className="btn btn-outline btn-xs" onClick={() => openResults(el.id)}>Results</button>
-                        {el.status === "draft" && (
-                          <button className="btn btn-accent btn-xs" onClick={() => updateStatus(el.id, "upcoming")}>Set Upcoming</button>
-                        )}
-                        {el.status === "upcoming" && (
-                          <button className="btn btn-accent btn-xs" onClick={() => updateStatus(el.id, "active")}>Activate</button>
-                        )}
-                        {el.status === "active" && (
-                          <button className="btn btn-danger btn-xs" onClick={() => updateStatus(el.id, "closed")}>Close</button>
-                        )}
-                        <button className="btn btn-ghost btn-xs" onClick={() => openEditElection(el)}>Edit</button>
-                        <button className="btn btn-danger btn-xs" onClick={() => deleteElection(el.id)}>Delete</button>
+                        <div className="dropdown-wrapper">
+                          <button
+                            className="dropdown-trigger"
+                            onClick={() => setOpenMenuId(openMenuId === el.id ? null : el.id)}
+                            style={{ fontSize: 18, lineHeight: 1, padding: "4px 10px", border: "none", background: "none", cursor: "pointer" }}
+                            title="Actions"
+                          >
+                            ⋮
+                          </button>
+                          {openMenuId === el.id && (
+                            <div className="dropdown-menu">
+                              <button className="dropdown-item" onClick={() => { setOpenMenuId(null); openPositions(el.id); }}>📋 Positions</button>
+                              <button className="dropdown-item" onClick={() => { setOpenMenuId(null); openDeclarations(el.id); }}>📄 Declarations</button>
+                              <button className="dropdown-item" onClick={() => { setOpenMenuId(null); openPosters(el.id, el.title); }}>🖼️ Posters</button>
+                              <button className="dropdown-item" onClick={() => { setOpenMenuId(null); openEligibleVoters(el.id); }}>👥 Voters</button>
+                              <button className="dropdown-item" onClick={() => { setOpenMenuId(null); openResults(el.id); }}>📊 Results</button>
+                              <div className="dropdown-divider" />
+                              {el.status === "draft" && (
+                                <button className="dropdown-item accent" onClick={() => { setOpenMenuId(null); updateStatus(el.id, "upcoming"); }}>▶ Set Upcoming</button>
+                              )}
+                              {el.status === "upcoming" && (
+                                <button className="dropdown-item accent" onClick={() => { setOpenMenuId(null); updateStatus(el.id, "active"); }}>▶ Activate</button>
+                              )}
+                              {el.status === "active" && (
+                                <button className="dropdown-item accent" onClick={() => { setOpenMenuId(null); updateStatus(el.id, "closed"); }}>⏹ Close</button>
+                              )}
+                              <div className="dropdown-divider" />
+                              <button className="dropdown-item" onClick={() => { setOpenMenuId(null); openEditElection(el); }}>✏️ Edit</button>
+                              <button className="dropdown-item danger" onClick={() => { setOpenMenuId(null); deleteElection(el.id); }}>🗑 Delete</button>
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -992,23 +1023,24 @@ export default function AdminElectionsPage() {
               {posterUploading ? (
                 <div>
                   <span style={{ fontSize: 32 }}>⏳</span>
-                  <p style={{ marginTop: 8, fontWeight: 600 }}>Uploading poster…</p>
+                  <p style={{ marginTop: 8, fontWeight: 600 }}>Uploading posters…</p>
                 </div>
               ) : (
                 <div>
                   <span style={{ fontSize: 40 }}>🖼️</span>
-                  <p style={{ marginTop: 8, fontWeight: 600 }}>Click to upload a poster</p>
+                  <p style={{ marginTop: 8, fontWeight: 600 }}>Click to upload posters</p>
                   <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
-                    JPEG, PNG, GIF, or WebP — max 10 MB
+                    JPEG, PNG, GIF, or WebP — max 10 MB each, up to 10 at once
                   </p>
                 </div>
               )}
               <input
                 id="poster-upload-input"
                 type="file"
+                multiple
                 accept="image/jpeg,image/png,image/gif,image/webp"
                 style={{ display: "none" }}
-                onChange={handleUploadPoster}
+                onChange={handleUploadPosters}
                 disabled={posterUploading}
               />
             </div>
