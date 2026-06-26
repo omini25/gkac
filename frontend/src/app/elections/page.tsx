@@ -5,6 +5,20 @@ import { api, type Election, type ElectionResults, type ElectionCandidate } from
 import Link from "next/link";
 import ImageGallery from "@/components/ImageGallery";
 
+// ─── Poster interface ───────────────────────────────────────────────────────
+interface Poster {
+  id: string;
+  election_id: string | null;
+  title: string | null;
+  filename: string;
+  original_name: string;
+  mime_type: string;
+  file_size: number;
+  sort_order: number;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
 // ─── Election Calendar Timeline Data ────────────────────────────────────────
 const ELECTION_TIMELINE = [
   {
@@ -65,10 +79,18 @@ export default function PublicElectionsPage() {
   const [candidatesLoading, setCandidatesLoading] = useState<Record<string, boolean>>({});
   const fetchedRef = useRef<Set<string>>(new Set());
 
+  const [posters, setPosters] = useState<Poster[]>([]);
+  const [postersLoading, setPostersLoading] = useState(true);
+
   useEffect(() => {
     api.getElections().then((res) => {
       if (res.data) setElections(res.data.elections);
       setLoading(false);
+    });
+    // Fetch all posters
+    api.getPosters().then((res) => {
+      if (res.data) setPosters(res.data.posters);
+      setPostersLoading(false);
     });
   }, []);
 
@@ -221,23 +243,38 @@ export default function PublicElectionsPage() {
         {/* ════════════════════════════════════════════════ */}
         {/* MEMBERS' CAMPAIGN GALLERY                      */}
         {/* ════════════════════════════════════════════════ */}
-        <ImageGallery
-          images={[
-            "WhatsApp Image 2026-06-22 at 10.53.49.jpeg",
-            "WhatsApp Image 2026-06-22 at 10.53.49 (1).jpeg",
-            "WhatsApp Image 2026-06-22 at 10.53.49 (2).jpeg",
-            "WhatsApp Image 2026-06-22 at 10.53.50.jpeg",
-            "WhatsApp Image 2026-06-22 at 10.53.50 (1).jpeg",
-            "WhatsApp Image 2026-06-22 at 10.53.50 (2).jpeg",
-            "WhatsApp Image 2026-06-22 at 10.53.50 (3).jpeg",
-            "WhatsApp Image 2026-06-22 at 10.53.50 (4).jpeg",
-            "WhatsApp Image 2026-06-22 at 10.53.51.jpeg",
-            "WhatsApp Image 2026-06-22 at 10.53.51 (1).jpeg",
-          ]}
-          folder="election-campagins"
-          title="🗳️ Members&apos; Campaign Gallery"
-          description="View campaign materials from candidates contesting in the 2026/2028 GKAC elections. Click any image to view full size and download."
-        />
+        {/* Dynamic Campaign Gallery from admin-uploaded posters */}
+        {postersLoading ? (
+          <div style={{ textAlign: "center", padding: 40, color: "var(--muted)" }}>
+            <span className="loader-dot" />
+          </div>
+        ) : posters.length > 0 ? (
+          <ImageGallery
+            images={posters.map((p) => api.getPosterUrl(p.filename))}
+            folder=""  /* URLs are absolute, so folder is not used */
+            title="🗳️ Members&apos; Campaign Gallery"
+            description="View campaign materials from candidates contesting in the 2026/2028 GKAC elections. Click any image to view full size and download."
+          />
+        ) : (
+          /* Fallback to static posters in public/election-campagins/ */
+          <ImageGallery
+            images={[
+              "WhatsApp Image 2026-06-22 at 10.53.49.jpeg",
+              "WhatsApp Image 2026-06-22 at 10.53.49 (1).jpeg",
+              "WhatsApp Image 2026-06-22 at 10.53.49 (2).jpeg",
+              "WhatsApp Image 2026-06-22 at 10.53.50.jpeg",
+              "WhatsApp Image 2026-06-22 at 10.53.50 (1).jpeg",
+              "WhatsApp Image 2026-06-22 at 10.53.50 (2).jpeg",
+              "WhatsApp Image 2026-06-22 at 10.53.50 (3).jpeg",
+              "WhatsApp Image 2026-06-22 at 10.53.50 (4).jpeg",
+              "WhatsApp Image 2026-06-22 at 10.53.51.jpeg",
+              "WhatsApp Image 2026-06-22 at 10.53.51 (1).jpeg",
+            ]}
+            folder="election-campagins"
+            title="🗳️ Members&apos; Campaign Gallery"
+            description="View campaign materials from candidates contesting in the 2026/2028 GKAC elections. Click any image to view full size and download."
+          />
+        )}
 
         {/* ════════════════════════════════════════════════ */}
         {/* ELECTION LISTS                                  */}

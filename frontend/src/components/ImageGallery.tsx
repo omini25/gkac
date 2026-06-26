@@ -23,7 +23,16 @@ export default function ImageGallery({ images, folder, title, description }: Ima
     setLightboxIndex((prev) => (prev !== null ? (prev - 1 + images.length) % images.length : null));
   }, [images.length]);
 
-  const currentImage = lightboxIndex !== null ? `/${folder}/${encodeURIComponent(images[lightboxIndex])}` : null;
+  function getImageSrc(filename: string): string {
+    // If filename is already a full URL (starts with http), use as-is
+    if (filename.startsWith("http://") || filename.startsWith("https://") || filename.startsWith("/api/")) {
+      return filename;
+    }
+    // Otherwise, construct from folder
+    return `/${folder}/${encodeURIComponent(filename)}`;
+  }
+
+  const currentImage = lightboxIndex !== null ? getImageSrc(images[lightboxIndex]) : null;
   const currentFilename = lightboxIndex !== null ? images[lightboxIndex] : null;
 
   // Keyboard navigation
@@ -53,7 +62,7 @@ export default function ImageGallery({ images, folder, title, description }: Ima
         marginBottom: "var(--space-4)",
       }}>
         {images.map((filename, idx) => {
-          const src = `/${folder}/${encodeURIComponent(filename)}`;
+          const src = getImageSrc(filename);
           return (
             <div
               key={filename}

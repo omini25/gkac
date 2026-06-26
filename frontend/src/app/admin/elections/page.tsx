@@ -61,6 +61,13 @@ export default function AdminElectionsPage() {
   const [voters, setVoters] = useState<any[]>([]);
   const [votersLoading, setVotersLoading] = useState(false);
 
+  // ─── Posters ────────────────────────────────────────────────────────────
+  const [showPosters, setShowPosters] = useState<string | null>(null);
+  const [posterElectionTitle, setPosterElectionTitle] = useState("");
+  const [posters, setPosters] = useState<any[]>([]);
+  const [postersLoading, setPostersLoading] = useState(false);
+  const [posterUploading, setPosterUploading] = useState(false);
+
   // Detail view
   const [selectedElection, setSelectedElection] = useState<ElectionDetail | null>(null);
 
@@ -460,6 +467,40 @@ export default function AdminElectionsPage() {
     setVotersLoading(false);
   }
 
+  // ─── Posters ────────────────────────────────────────────────────────────
+  async function openPosters(electionId: string, electionTitle: string) {
+    setShowPosters(electionId);
+    setPosterElectionTitle(electionTitle);
+    setPostersLoading(true);
+    const res = await api.getPosters(electionId);
+    if (res.data) setPosters(res.data.posters);
+    else showToast(res.error || "Failed to load posters", "error");
+    setPostersLoading(false);
+  }
+
+  async function handleUploadPoster(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files || !e.target.files[0] || !showPosters) return;
+    const file = e.target.files[0];
+    setPosterUploading(true);
+    const res = await api.uploadPoster(file, showPosters);
+    if (res.data) {
+      showToast("Poster uploaded", "success");
+      openPosters(showPosters, posterElectionTitle);
+    } else {
+      showToast(res.error || "Failed to upload poster", "error");
+      setPosterUploading(false);
+    }
+  }
+
+  async function deletePoster(id: string) {
+    if (!confirm("Delete this poster?")) return;
+    const res = await api.deletePoster(id);
+    if (res.data) {
+      showToast("Poster deleted", "success");
+      if (showPosters) openPosters(showPosters, posterElectionTitle);
+    } else showToast(res.error || "Failed to delete poster", "error");
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────
   function statusBadge(status: string) {
     const map: Record<string, string> = {
@@ -527,6 +568,7 @@ export default function AdminElectionsPage() {
                       <td className="actions">
                         <button className="btn btn-outline btn-xs" onClick={() => openPositions(el.id)}>Positions</button>
                         <button className="btn btn-outline btn-xs" onClick={() => openDeclarations(el.id)}>Declarations</button>
+                        <button className="btn btn-outline btn-xs" onClick={() => openPosters(el.id, el.title)}>Posters</button>
                         <button className="btn btn-outline btn-xs" onClick={() => openEligibleVoters(el.id)}>Voters</button>
                         <button className="btn btn-outline btn-xs" onClick={() => openResults(el.id)}>Results</button>
                         {el.status === "draft" && (
@@ -917,6 +959,162 @@ export default function AdminElectionsPage() {
               </button>
               <button className="btn btn-ghost" onClick={() => setShowElectionModal(false)}>Cancel</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ POSTER MANAGEMENT MODAL ═══ */}
+      {showPosters && (
+        <div className="modal-overlay open" onClick={() => { setShowPosters(null); setPosters([]); }}>
+          <div className="modal" style={{ maxWidth: 750 }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => { setShowPosters(null); setPosters([]); }}>✕</button>
+            <h3>📸 Election Posters — {posterElectionTitle}</h3>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 14 }}>
+              Upload and manage campaign posters for this election. Supported formats: JPEG, PNG, GIF, WebP (max 10 MB each).
+            </p>
+
+            {/* Upload Area */}
+            <div
+              style={{
+                border: "2px dashed var(--border-strong)",
+                borderRadius: "var(--radius-md)",
+                padding: posterUploading ? 20 : 32,
+                textAlign: "center",
+                marginBottom: 20,
+                cursor: "pointer",
+                background: posterUploading ? "var(--green-light)" : "var(--bg)",
+                transition: "all 0.2s",
+              }}
+              onClick={() => document.getElementById("poster-upload-input")?.click()}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.background = "var(--green-light)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border-strong)"; e.currentTarget.style.background = "var(--bg)"; }}
+            >
+              {posterUploading ? (
+                <div>
+                  <span style={{ fontSize: 32 }}>⏳</span>
+                  <p style={{ marginTop: 8, fontWeight: 600 }}>Uploading poster…</p>
+                </div>
+              ) : (
+                <div>
+                  <span style={{ fontSize: 40 }}>🖼️</span>
+                  <p style={{ marginTop: 8, fontWeight: 600 }}>Click to upload a poster</p>
+                  <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
+                    JPEG, PNG, GIF, or WebP — max 10 MB
+                  </p>
+                </div>
+              )}
+              <input
+                id="poster-upload-input"
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                style={{ display: "none" }}
+                onChange={handleUploadPoster}
+                disabled={posterUploading}
+              />
+            </div>
+
+            {/* Posters Gallery */}
+            {postersLoading ? (
+              <p style={{ textAlign: "center", color: "var(--muted)", padding: 20 }}><span className="loader-dot" /></p>
+            ) : posters.length === 0 ? (
+              <div style={{
+                textAlign: "center", padding: 40, color: "var(--muted)",
+                border: "1px solid var(--border)", borderRadius: "var(--radius-md)",
+              }}>
+                <span style={{ fontSize: 48 }}>📭</span>
+                <p style={{ marginTop: 12 }}>No posters uploaded yet. Drop a poster above to get started.</p>
+              </div>
+            ) : (
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                gap: 12,
+                maxHeight: 420,
+                overflowY: "auto",
+                padding: "4px 0",
+              }}>
+                {posters.map((poster) => {
+                  const posterUrl = api.getPosterUrl(poster.filename);
+                  return (
+                    <div
+                      key={poster.id}
+                      style={{
+                        borderRadius: "var(--radius-md)",
+                        overflow: "hidden",
+                        border: "1px solid var(--border)",
+                        background: "var(--surface)",
+                        position: "relative",
+                        aspectRatio: "4 / 3",
+                      }}
+                    >
+                      <img
+                        src={posterUrl}
+                        alt={poster.title || poster.original_name}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                      />
+                      {/* Overlay on hover */}
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          background: "rgba(0,0,0,0.5)",
+                          opacity: 0,
+                          transition: "opacity 0.2s",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: 12,
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.opacity = "0"; }}
+                      >
+                        {poster.title && (
+                          <span style={{ color: "#fff", fontWeight: 600, fontSize: 13, textAlign: "center" }}>
+                            {poster.title}
+                          </span>
+                        )}
+                        <a
+                          href={posterUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-outline btn-xs"
+                          style={{ background: "rgba(255,255,255,0.9)", color: "#000", border: "none" }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          🔍 View
+                        </a>
+                        <button
+                          className="btn btn-danger btn-xs"
+                          onClick={() => deletePoster(poster.id)}
+                        >
+                          🗑 Delete
+                        </button>
+                      </div>
+                      {/* Bottom label */}
+                      <div style={{
+                        position: "absolute",
+                        bottom: 0, left: 0, right: 0,
+                        background: "linear-gradient(transparent, rgba(0,0,0,0.7))",
+                        padding: "8px",
+                        fontSize: 11,
+                        color: "#fff",
+                        textAlign: "center",
+                        pointerEvents: "none",
+                      }}>
+                        {poster.original_name}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

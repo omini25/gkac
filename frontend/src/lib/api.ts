@@ -676,6 +676,32 @@ export const api = {
   getEligibleVoters: (electionId: string) =>
     request<{ voters: any[] }>(`/elections/${electionId}/eligible-voters`),
 
+  // ─── Election Posters ──────────────────────────────────────────────────────
+  getPosters: (electionId?: string) => {
+    const query = electionId ? `?election_id=${encodeURIComponent(electionId)}` : "";
+    return request<{ posters: any[] }>(`/elections/posters${query}`);
+  },
+
+  uploadPoster: (posterFile: File, electionId?: string, title?: string) => {
+    const formData = new FormData();
+    formData.append("poster", posterFile);
+    if (electionId) formData.append("election_id", electionId);
+    if (title) formData.append("title", title);
+    return request<{ poster: any }>("/elections/posters/upload", {
+      method: "POST",
+      headers: {},
+      body: formData,
+    });
+  },
+
+  deletePoster: (id: string) =>
+    request<{ message: string }>(`/elections/posters/${id}`, {
+      method: "DELETE",
+    }),
+
+  getPosterUrl: (filename: string) =>
+    `${API_BASE}/elections/posters/file/${encodeURIComponent(filename)}`,
+
   // ─── Admin - Members ───────────────────────────────────────────────────────
   getMembers: () =>
     request<{ members: any[] }>("/admin/members"),

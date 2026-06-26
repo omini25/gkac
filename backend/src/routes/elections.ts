@@ -97,6 +97,98 @@ electionsRouter.get("/elections", async (_req: Request, res: Response) => {
   }
 });
 
+// ─── GET /api/elections/posters ─────────────────────────────────────────
+// List all posters, optionally filtered by election_id query param
+electionsRouter.get("/elections/posters", async (req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const electionId = req.query.election_id as string | undefined;
+
+    let query = `SELECT * FROM election_posters`;
+    const params: any[] = [];
+
+    if (electionId) {
+      query += ` WHERE election_id = $1`;
+      params.push(electionId);
+    }
+
+    query += ` ORDER BY sort_order, created_at DESC`;
+
+    const result = await db.query(query, params);
+    return res.json({ posters: result.rows });
+  } catch (err) {
+    console.error("Error fetching posters:", err);
+    return res.status(500).json({ error: "Failed to fetch posters." });
+  }
+});
+
+// ─── GET /api/elections/events ───────────────────────────────────────────
+electionsRouter.get("/elections/events", async (_req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const result = await db.query(
+      `SELECT id, title, description,
+              declaration_start, declaration_end,
+              nomination_start, nomination_end,
+              eligible_voters_release_date,
+              screening_date,
+              qualified_candidates_release_date,
+              manifesto_date,
+              election_date,
+              swearing_in_date,
+              start_date, end_date,
+              status
+       FROM elections
+       WHERE status IN ('upcoming', 'active', 'draft')
+       ORDER BY COALESCE(election_date, start_date, declaration_start) ASC`
+    );
+
+    const events: any[] = [];
+
+    for (const el of result.rows) {
+      const milestones: { date: string | null; title: string; desc: string }[] = [
+        { date: el.declaration_start, title: `${el.title} — Declaration of Interest Opens`, desc: "Submission of declarations begins." },
+        { date: el.declaration_end, title: `${el.title} — Declaration of Interest Closes`, desc: "Deadline for declaration submissions." },
+        { date: el.nomination_start, title: `${el.title} — Nominations Open`, desc: "Nomination period begins." },
+        { date: el.nomination_end, title: `${el.title} — Nominations Close`, desc: "Deadline for nominations." },
+        { date: el.eligible_voters_release_date, title: `${el.title} — Eligible Voters List Published`, desc: "List of eligible voters is released." },
+        { date: el.screening_date, title: `${el.title} — Candidate Screening`, desc: "Screening of candidates takes place." },
+        { date: el.qualified_candidates_release_date, title: `${el.title} — Qualified Candidates Announced`, desc: "Final list of qualified candidates is published." },
+        { date: el.manifesto_date, title: `${el.title} — Manifesto Presentation`, desc: "Candidates present their manifestos." },
+        { date: el.election_date, title: `${el.title} — Election Day`, desc: "Voting takes place." },
+        { date: el.swearing_in_date, title: `${el.title} — Swearing-In Ceremony`, desc: "Swearing-in of elected officials." },
+        { date: el.start_date, title: `${el.title} — Election Period Starts`, desc: "The election period officially begins." },
+        { date: el.end_date, title: `${el.title} — Election Period Ends`, desc: "The election period officially ends." },
+      ];
+
+      for (const m of milestones) {
+        if (m.date) {
+          events.push({
+            id: `election-${el.id}-${m.title.replace(/\s+/g, "-").toLowerCase()}`,
+            title: m.title,
+            description: m.desc,
+            location: "Global Headquarters",
+            event_date: m.date,
+            event_time: null,
+            badge_label: el.status === "active" ? "Ongoing" : el.status === "upcoming" ? "Upcoming" : "Draft",
+            badge_class: "election",
+            status: "open",
+            image_url: null,
+            source: "election",
+            election_id: el.id,
+            created_at: el.created_at || new Date(),
+          });
+        }
+      }
+    }
+
+    return res.json({ events });
+  } catch (err) {
+    console.error("Error fetching election events:", err);
+    return res.status(500).json({ error: "Failed to fetch election events." });
+  }
+});
+
 // ─── GET /api/elections/:id ───────────────────────────────────────────────
 electionsRouter.get("/elections/:id", async (req: Request, res: Response) => {
   try {
@@ -1294,72 +1386,132 @@ electionsRouter.get("/elections/:id/results", async (_req: Request, res: Respons
 });
 
 // ============================================================================
-// ELECTION EVENTS (election milestones shown as events)
+// ELECTION POSTERS (admin-uploaded campaign posters)
 // ============================================================================
 
-// ─── GET /api/elections/events ───────────────────────────────────────────
-electionsRouter.get("/elections/events", async (_req: Request, res: Response) => {
-  try {
-    const db = getDbPool();
-    const result = await db.query(
-      `SELECT id, title, description,
-              declaration_start, declaration_end,
-              nomination_start, nomination_end,
-              eligible_voters_release_date,
-              screening_date,
-              qualified_candidates_release_date,
-              manifesto_date,
-              election_date,
-              swearing_in_date,
-              start_date, end_date,
-              status
-       FROM elections
-       WHERE status IN ('upcoming', 'active', 'draft')
-       ORDER BY COALESCE(election_date, start_date, declaration_start) ASC`
-    );
+// Upload directory for posters
+const ELECTION_POSTERS_DIR = path.join(__dirname, "..", "..", "uploads", "election-posters");
+if (!fs.existsSync(ELECTION_POSTERS_DIR)) {
+  fs.mkdirSync(ELECTION_POSTERS_DIR, { recursive: true });
+}
 
-    const events: any[] = [];
+const posterStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, ELECTION_POSTERS_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const name = crypto.randomBytes(16).toString("hex") + ext;
+    cb(null, name);
+  },
+});
 
-    for (const el of result.rows) {
-      const milestones: { date: string | null; title: string; desc: string }[] = [
-        { date: el.declaration_start, title: `${el.title} — Declaration of Interest Opens`, desc: "Submission of declarations begins." },
-        { date: el.declaration_end, title: `${el.title} — Declaration of Interest Closes`, desc: "Deadline for declaration submissions." },
-        { date: el.nomination_start, title: `${el.title} — Nominations Open`, desc: "Nomination period begins." },
-        { date: el.nomination_end, title: `${el.title} — Nominations Close`, desc: "Deadline for nominations." },
-        { date: el.eligible_voters_release_date, title: `${el.title} — Eligible Voters List Published`, desc: "List of eligible voters is released." },
-        { date: el.screening_date, title: `${el.title} — Candidate Screening`, desc: "Screening of candidates takes place." },
-        { date: el.qualified_candidates_release_date, title: `${el.title} — Qualified Candidates Announced`, desc: "Final list of qualified candidates is published." },
-        { date: el.manifesto_date, title: `${el.title} — Manifesto Presentation`, desc: "Candidates present their manifestos." },
-        { date: el.election_date, title: `${el.title} — Election Day`, desc: "Voting takes place." },
-        { date: el.swearing_in_date, title: `${el.title} — Swearing-In Ceremony`, desc: "Swearing-in of elected officials." },
-        { date: el.start_date, title: `${el.title} — Election Period Starts`, desc: "The election period officially begins." },
-        { date: el.end_date, title: `${el.title} — Election Period Ends`, desc: "The election period officially ends." },
-      ];
+const uploadPoster = multer({
+  storage: posterStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    cb(new Error("Only image files are allowed (JPEG, PNG, GIF, WebP)."));
+  },
+});
 
-      for (const m of milestones) {
-        if (m.date) {
-          events.push({
-            id: `election-${el.id}-${m.title.replace(/\s+/g, "-").toLowerCase()}`,
-            title: m.title,
-            description: m.desc,
-            location: "Global Headquarters",
-            event_date: m.date,
-            event_time: null,
-            badge_label: el.status === "active" ? "Ongoing" : el.status === "upcoming" ? "Upcoming" : "Draft",
-            badge_class: "election",
-            status: "open",
-            image_url: null,
-            source: "election",
-            election_id: el.id,
-            created_at: el.created_at || new Date(),
-          });
-        }
+// ─── POST /api/elections/posters/upload (admin) ─────────────────────────
+electionsRouter.post("/elections/posters/upload", (req: Request, res: Response) => {
+  uploadPoster.single("poster")(req, res, async (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({ error: `Upload error: ${err.message}` });
       }
+      return res.status(400).json({ error: err.message });
     }
 
-    return res.json({ events });
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded." });
+    }
+
+    const auth = authenticate(req, res);
+    if (!auth) return;
+    if (!(await requireAdmin(auth, res))) return;
+
+    try {
+      const db = getDbPool();
+      const { election_id, title, sort_order } = req.body;
+
+      const result = await db.query(
+        `INSERT INTO election_posters (election_id, title, filename, original_name, mime_type, file_size, sort_order, uploaded_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [
+          election_id || null,
+          title?.trim() || null,
+          req.file.filename,
+          req.file.originalname,
+          req.file.mimetype,
+          req.file.size,
+          sort_order ? parseInt(sort_order, 10) : 0,
+          auth.userId,
+        ]
+      );
+
+      return res.status(201).json({ poster: result.rows[0] });
+    } catch (dbErr) {
+      console.error("Error saving poster:", dbErr);
+      return res.status(500).json({ error: "Failed to save poster." });
+    }
+  });
+});
+
+// ─── DELETE /api/elections/posters/:id (admin) ──────────────────────────
+electionsRouter.delete("/elections/posters/:id", async (req: Request, res: Response) => {
+  const auth = authenticate(req, res);
+  if (!auth) return;
+  if (!(await requireAdmin(auth, res))) return;
+
+  try {
+    const { id } = req.params;
+    const db = getDbPool();
+
+    // Get the poster record
+    const posterResult = await db.query(
+      "SELECT * FROM election_posters WHERE id = $1",
+      [id]
+    );
+
+    if (posterResult.rows.length === 0) {
+      return res.status(404).json({ error: "Poster not found." });
+    }
+
+    const poster = posterResult.rows[0];
+
+    // Delete the file from disk
+    const filePath = path.join(ELECTION_POSTERS_DIR, poster.filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    // Delete the database record
+    await db.query("DELETE FROM election_posters WHERE id = $1", [id]);
+
+    return res.json({ message: "Poster deleted." });
   } catch (err) {
-    console.error("Error fetching election events:", err);
-    return res.status(500).json({ error: "Failed to fetch election events." });
+    console.error("Error deleting poster:", err);
+    return res.status(500).json({ error: "Failed to delete poster." });
   }
 });
+
+// ─── GET /api/elections/posters/:filename — Serve poster image ──────────
+electionsRouter.get("/elections/posters/file/:filename", async (req: Request, res: Response) => {
+  try {
+    const { filename } = req.params;
+    const filePath = path.join(ELECTION_POSTERS_DIR, filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "File not found." });
+    }
+
+    res.sendFile(filePath);
+  } catch (err) {
+    console.error("Error serving poster file:", err);
+    return res.status(500).json({ error: "Failed to serve file." });
+  }
+});
+
+
