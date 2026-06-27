@@ -20,6 +20,7 @@ export default function PosterCarousel({
 }: PosterCarouselProps) {
   const [current, setCurrent] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const len = images.length;
@@ -47,6 +48,25 @@ export default function PosterCarousel({
 
   const goTo = (idx: number) => setCurrent(idx);
 
+  // ── Lightbox ──────────────────────────────────────────────────────────────
+  const openLightbox = (idx: number) => {
+    setLightboxIdx(idx);
+    setIsPaused(true);
+  };
+
+  const closeLightbox = useCallback(() => {
+    setLightboxIdx(null);
+    setIsPaused(false);
+  }, []);
+
+  const lbNext = useCallback(() => {
+    setLightboxIdx((prev) => (prev !== null ? (prev + 1) % len : null));
+  }, [len]);
+
+  const lbPrev = useCallback(() => {
+    setLightboxIdx((prev) => (prev !== null ? (prev - 1 + len) % len : null));
+  }, [len]);
+
   // ── Auto-rotation ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (isPaused || len <= 1) return;
@@ -55,6 +75,18 @@ export default function PosterCarousel({
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [isPaused, len, intervalMs, goNext]);
+
+  // ── Keyboard navigation for lightbox ──────────────────────────────────────
+  useEffect(() => {
+    if (lightboxIdx === null) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") lbNext();
+      else if (e.key === "ArrowLeft") lbPrev();
+      else if (e.key === "Escape") closeLightbox();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [lightboxIdx, lbNext, lbPrev, closeLightbox]);
 
   if (len === 0) return null;
 
@@ -99,7 +131,9 @@ export default function PosterCarousel({
                 height: "100%",
                 position: "relative",
                 flexShrink: 0,
+                cursor: "pointer",
               }}
+              onClick={() => openLightbox(idx)}
             >
               <img
                 src={getSrc(filename)}
@@ -111,6 +145,36 @@ export default function PosterCarousel({
                   display: "block",
                 }}
               />
+              {/* Click to expand overlay */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(0,0,0,0)",
+                  transition: "background 0.3s",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                className="carousel-expand-overlay"
+              >
+                <span
+                  style={{
+                    color: "#fff",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    background: "rgba(0,0,0,0.6)",
+                    padding: "6px 14px",
+                    borderRadius: "var(--radius-sm)",
+                    opacity: 0,
+                    transition: "opacity 0.3s",
+                    pointerEvents: "none",
+                  }}
+                  className="carousel-expand-hint"
+                >
+                  ⛶ Click to expand
+                </span>
+              </div>
               {/* Image counter badge */}
               <div
                 style={{
@@ -187,7 +251,7 @@ export default function PosterCarousel({
         )}
 
         {/* ── Pause indicator ───────────────────────────────── */}
-        {isPaused && (
+        {isPaused && lightboxIdx === null && (
           <div
             style={{
               position: "absolute",
@@ -205,6 +269,99 @@ export default function PosterCarousel({
           </div>
         )}
       </div>
+
+      {/* ═══ LIGHTBOX ═══ */}
+      {lightboxIdx !== null && (
+        <div
+          className="modal-overlay open"
+          onClick={closeLightbox}
+          style={{
+            background: "rgba(0,0,0,0.9)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "relative",
+              maxWidth: "95vw",
+              maxHeight: "95vh",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+            }}
+          >
+            {/* Close button */}
+            <button
+              onClick={closeLightbox}
+              style={{
+                position: "absolute",
+                top: -44,
+                right: 0,
+                background: "none",
+                border: "none",
+                color: "#fff",
+                fontSize: 28,
+                cursor: "pointer",
+                lineHeight: 1,
+                zIndex: 1,
+              }}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+
+            {/* Previous */}
+            {len > 1 && (
+              <button
+                onClick={lbPrev}
+                className="lightbox-arrow lightbox-arrow-left"
+                aria-label="Previous"
+              >
+                ‹
+              </button>
+            )}
+
+            {/* Next */}
+            {len > 1 && (
+              <button
+                onClick={lbNext}
+                className="lightbox-arrow lightbox-arrow-right"
+                aria-label="Next"
+              >
+                ›
+              </button>
+            )}
+
+            {/* Image */}
+            <img
+              src={getSrc(images[lightboxIdx])}
+              alt={`${title} ${lightboxIdx + 1}`}
+              style={{
+                maxWidth: "100%",
+                maxHeight: "85vh",
+                borderRadius: "var(--radius-md)",
+                objectFit: "contain",
+              }}
+            />
+
+            {/* Caption */}
+            <div
+              style={{
+                marginTop: 12,
+                color: "rgba(255,255,255,0.7)",
+                fontSize: 13,
+                textAlign: "center",
+              }}
+            >
+              {lightboxIdx + 1} / {len}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
