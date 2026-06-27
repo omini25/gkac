@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { getDbPool } from "../db";
 import { EmailTemplates, sendTemplatedEmail } from "../email";
+import { verifyNIN, PremblyError } from "../prembly";
 
 export const adminMembersRouter = Router();
 
@@ -13,7 +14,7 @@ adminMembersRouter.post("/admin/members", async (req: Request, res: Response) =>
     const {
       firstName, lastName, email, phone, password,
       gender, stateOfOrigin, lga, residentialAddress,
-      categoryId, categoryName, membershipCode,
+      categoryId, categoryName,
     } = req.body;
 
     if (!firstName || !lastName || !email || !password) {
@@ -28,6 +29,11 @@ adminMembersRouter.post("/admin/members", async (req: Request, res: Response) =>
 
     const passwordHash = await bcrypt.hash(password, 12);
 
+    // Generate a unique membership code
+    const year = new Date().getFullYear();
+    const random = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
+    const membershipCode = `MEM-${year}-${random}`;
+
     const result = await db.query(
       `INSERT INTO users (first_name, last_name, email, phone, password_hash,
         gender, state_of_origin, lga, residential_address,
@@ -41,7 +47,7 @@ adminMembersRouter.post("/admin/members", async (req: Request, res: Response) =>
         firstName.trim(), lastName.trim(), email.trim().toLowerCase(), phone || null,
         passwordHash, gender || null, stateOfOrigin || null, lga || null,
         residentialAddress || null, categoryId || null, categoryName || null,
-        membershipCode || null,
+        membershipCode,
       ]
     );
 
@@ -100,6 +106,7 @@ adminMembersRouter.get("/admin/members", async (_req: Request, res: Response) =>
         membership_category_id, membership_category_name,
         membership_code, application_status, rejection_reason,
         is_verified, is_admin, is_suspended, membership_expires_at,
+        nin, alt_id_type, alt_id_num,
         created_at, updated_at
        FROM users
        WHERE is_admin = FALSE
@@ -129,6 +136,10 @@ adminMembersRouter.get("/admin/members", async (_req: Request, res: Response) =>
       expiry: u.membership_expires_at,
       createdAt: u.created_at,
       updatedAt: u.updated_at,
+      nin: u.nin,
+      altIdType: u.alt_id_type,
+      altIdNum: u.alt_id_num,
+      hasNin: !!u.nin,
       // Computed display status
       status: computeDisplayStatus(u),
     }));
@@ -164,6 +175,7 @@ adminMembersRouter.get("/admin/members/:id", async (req: Request, res: Response)
         membership_category_id, membership_category_name,
         membership_code, application_status, rejection_reason,
         is_verified, is_admin, is_suspended, membership_expires_at,
+        nin, alt_id_type, alt_id_num,
         annual_due_paid, annual_due_year,
         annual_developmental_fee_paid, annual_developmental_fee_year,
         developmental_levy_amount,
@@ -204,6 +216,10 @@ adminMembersRouter.get("/admin/members/:id", async (req: Request, res: Response)
         annualDevelopmentalFeePaid: u.annual_developmental_fee_paid ?? false,
         annualDevelopmentalFeeYear: u.annual_developmental_fee_year,
         developmentalLevyAmount: u.developmental_levy_amount,
+        nin: u.nin,
+        altIdType: u.alt_id_type,
+        altIdNum: u.alt_id_num,
+        hasNin: !!u.nin,
         status: computeDisplayStatus(u),
       },
     });
@@ -222,7 +238,8 @@ adminMembersRouter.put("/admin/members/:id", async (req: Request, res: Response)
       firstName, lastName, email, phone, dateOfBirth, gender,
       stateOfOrigin, lga, residentialAddress,
       membershipCategoryId, membershipCategoryName,
-      membershipCode, membershipExpiresAt,
+      membershipExpiresAt,
+      nin, altIdType, altIdNum,
     } = req.body;
 
     // Check member exists
@@ -244,18 +261,22 @@ adminMembersRouter.put("/admin/members/:id", async (req: Request, res: Response)
         residential_address = COALESCE($9, residential_address),
         membership_category_id = COALESCE($10, membership_category_id),
         membership_category_name = COALESCE($11, membership_category_name),
-        membership_code = COALESCE($12, membership_code),
-        membership_expires_at = COALESCE($13, membership_expires_at)
-       WHERE id = $14
+        membership_expires_at = COALESCE($12, membership_expires_at),
+        nin = COALESCE($13, nin),
+        alt_id_type = COALESCE($14, alt_id_type),
+        alt_id_num = COALESCE($15, alt_id_num)
+       WHERE id = $16
        RETURNING id, first_name, last_name, email, phone,
          membership_category_name, membership_code, application_status,
-         is_suspended, membership_expires_at`,
+         is_suspended, membership_expires_at,
+         nin, alt_id_type, alt_id_num`,
       [
         firstName || null, lastName || null, email || null, phone || null,
         dateOfBirth || null, gender || null, stateOfOrigin || null,
         lga || null, residentialAddress || null,
         membershipCategoryId || null, membershipCategoryName || null,
-        membershipCode || null, membershipExpiresAt || null,
+        membershipExpiresAt || null,
+        nin || null, altIdType || null, altIdNum || null,
         id,
       ]
     );
@@ -274,6 +295,10 @@ adminMembersRouter.put("/admin/members/:id", async (req: Request, res: Response)
         mno: u.membership_code || "—",
         status: computeDisplayStatus(u),
         expiry: u.membership_expires_at,
+        nin: u.nin,
+        altIdType: u.alt_id_type,
+        altIdNum: u.alt_id_num,
+        hasNin: !!u.nin,
       },
     });
   } catch (err) {
@@ -718,5 +743,71 @@ adminMembersRouter.post("/admin/members/:id/remind", async (req: Request, res: R
   } catch (err) {
     console.error("Error sending reminder:", err);
     return res.status(500).json({ error: "Failed to send reminder." });
+  }
+});
+
+// ─── POST /api/admin/members/:id/verify-nin ──────────────────────────────
+// Admin-triggered NIN verification via Prembly
+adminMembersRouter.post("/admin/members/:id/verify-nin", async (req: Request, res: Response) => {
+  try {
+    const db = getDbPool();
+    const { id } = req.params;
+
+    const result = await db.query(
+      "SELECT id, first_name, last_name, email, nin FROM users WHERE id = $1",
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Member not found." });
+    }
+
+    const user = result.rows[0];
+
+    if (!user.nin) {
+      return res.status(400).json({
+        error: "This member does not have an NIN on record.",
+      });
+    }
+
+    const premblyResult = await verifyNIN(user.nin);
+    const ninData = premblyResult.nin_data;
+
+    console.log(
+      `[prembly] NIN verified for ${user.first_name} ${user.last_name} (${user.email}): ` +
+      `${ninData.firstname} ${ninData.surname}`
+    );
+
+    return res.json({
+      message: "NIN verification successful.",
+      verified: true,
+      nin: user.nin,
+      data: {
+        firstName: ninData.firstname,
+        lastName: ninData.surname,
+        middlename: ninData.middlename,
+        dateOfBirth: ninData.birthdate,
+        gender: ninData.gender === "m" ? "Male" : ninData.gender === "f" ? "Female" : ninData.gender,
+        phone: ninData.telephoneno,
+        photo: ninData.photo, // base64
+        signature: ninData.signature, // base64
+        address: ninData.residence_address,
+        stateOfOrigin: ninData.self_origin_state,
+        lga: ninData.self_origin_lga,
+        maritalStatus: ninData.maritalstatus,
+        profession: ninData.profession,
+        educationalLevel: ninData.educationallevel,
+        employmentStatus: ninData.employmentstatus,
+        religion: ninData.religion,
+      },
+    });
+  } catch (err) {
+    if (err instanceof PremblyError) {
+      return res.status(400).json({
+        error: `NIN verification failed: ${err.message}`,
+        verified: false,
+      });
+    }
+    console.error("Error verifying NIN:", err);
+    return res.status(500).json({ error: "Failed to verify NIN." });
   }
 });

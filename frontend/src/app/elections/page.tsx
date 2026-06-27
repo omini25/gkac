@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { api, type Election, type ElectionResults, type ElectionCandidate } from "@/lib/api";
 import Link from "next/link";
-import ImageGallery from "@/components/ImageGallery";
+import PosterCarousel from "@/components/PosterCarousel";
 
 // ─── Poster interface ───────────────────────────────────────────────────────
 interface Poster {
@@ -28,13 +28,13 @@ const ELECTION_TIMELINE = [
     status: "active",
   },
   {
-    date: "End of July 2026",
+    date: "2nd of July 2026",
     title: "Release of Eligible Voters & Qualified Candidates",
     description: "Upload of eligible voters and qualified candidates to the electorate for verification.",
     status: "upcoming",
   },
   {
-    date: "To Be Announced",
+    date: "4th of July 2026",
     title: "🗳️ Election Day",
     description: "Voting process begins at 10:00 AM and closes at 4:00 PM. All eligible voters are required to participate in this election.",
     time: "10:00 AM – 4:00 PM",
@@ -170,17 +170,17 @@ export default function PublicElectionsPage() {
         </div>
 
         {/* ════════════════════════════════════════════════ */}
-        {/* ELECTION CALENDAR — 2026/2028 Timeline          */}
+        {/* ELECTION CALENDAR — 2026-2028 Timeline          */}
         {/* ════════════════════════════════════════════════ */}
         <div className="card" style={{
           marginBottom: "var(--space-4)", background: "var(--green-light)",
           border: "1px solid var(--green)", textAlign: "center",
         }}>
           <p style={{ fontWeight: 700, marginBottom: "var(--space-1)" }}>
-            ⚠️ IMPORTANT NOTICE — 2026/2028 ELECTION PROCESS
+            ⚠️ IMPORTANT NOTICE — 2026-2028 ELECTION PROCESS
           </p>
           <p style={{ margin: 0, fontSize: 15 }}>
-            The Electoral Committee has kick-started the Year 2026/2028 Election Process.
+            The Electoral Committee has kick-started the Year 2026-2028 Election Process.
             Payment of all allotted fees validates eligibility to be voted for.
           </p>
         </div>
@@ -249,15 +249,15 @@ export default function PublicElectionsPage() {
             <span className="loader-dot" />
           </div>
         ) : posters.length > 0 ? (
-          <ImageGallery
+          <PosterCarousel
             images={posters.map((p) => api.getPosterUrl(p.filename))}
             folder=""  /* URLs are absolute, so folder is not used */
             title="🗳️ Members&apos; Campaign Gallery"
-            description="View campaign materials from candidates contesting in the 2026/2028 GKAC elections. Click any image to view full size and download."
+            description="View campaign materials from candidates contesting in the 2026-2028 GKAC elections."
           />
         ) : (
           /* Fallback to static posters in public/election-campagins/ */
-          <ImageGallery
+          <PosterCarousel
             images={[
               "WhatsApp Image 2026-06-22 at 10.53.49.jpeg",
               "WhatsApp Image 2026-06-22 at 10.53.49 (1).jpeg",
@@ -272,7 +272,7 @@ export default function PublicElectionsPage() {
             ]}
             folder="election-campagins"
             title="🗳️ Members&apos; Campaign Gallery"
-            description="View campaign materials from candidates contesting in the 2026/2028 GKAC elections. Click any image to view full size and download."
+            description="View campaign materials from candidates contesting in the 2026-2028 GKAC elections."
           />
         )}
 

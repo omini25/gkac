@@ -770,6 +770,34 @@ export const api = {
       body: JSON.stringify({ newPassword }),
     }),
 
+  // ─── Admin - NIN Verification via Prembly ──────────────────────────────────
+  verifyMemberNIN: (id: string) =>
+    request<{
+      message: string;
+      verified: boolean;
+      nin: string;
+      data: {
+        firstName: string;
+        lastName: string;
+        middlename: string;
+        dateOfBirth: string;
+        gender: string;
+        phone: string;
+        photo: string;
+        signature?: string;
+        address: string;
+        stateOfOrigin: string;
+        lga: string;
+        maritalStatus: string;
+        profession: string;
+        educationalLevel: string;
+        employmentStatus: string;
+        religion: string;
+      };
+    }>(`/admin/members/${id}/verify-nin`, {
+      method: "POST",
+    }),
+
   // ─── Admin - Reports ───────────────────────────────────────────────────────
   getReports: () =>
     request<{

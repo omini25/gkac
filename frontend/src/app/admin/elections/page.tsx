@@ -554,8 +554,8 @@ export default function AdminElectionsPage() {
           ) : elections.length === 0 ? (
             <p style={{ color: "var(--muted)", padding: 20 }}>No elections yet. Create your first election to get started.</p>
           ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table className="data-table">
+            <div className="table-scroll-wrap">
+              <table className="data-table data-table-elections">
                 <thead>
                   <tr>
                     <th>Election</th>

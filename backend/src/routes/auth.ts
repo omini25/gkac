@@ -4,11 +4,29 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { getDbPool } from "../db";
 import { EmailTemplates, sendTemplatedEmail } from "../email";
+import { verifyNIN, PremblyError } from "../prembly";
 
 export const authRouter = Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || "gkac-dev-secret-change-in-production";
 const SALT_ROUNDS = 12;
+
+/**
+ * Generate a unique membership code: MEM-<year>-<5-digit-padded-sequence>
+ * Retries up to 3 times if a collision occurs.
+ */
+async function generateMembershipCode(db: any): Promise<string> {
+  const year = new Date().getFullYear();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const random = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
+    const code = `MEM-${year}-${random}`;
+    const exists = await db.query("SELECT id FROM users WHERE membership_code = $1", [code]);
+    if (exists.rows.length === 0) return code;
+  }
+  // Fallback: use a timestamp-based suffix to guarantee uniqueness
+  const ts = Date.now().toString(36).toUpperCase();
+  return `MEM-${year}-${ts}`;
+}
 
 // ─── GET /api/auth/categories ─────────────────────────────────────────────
 authRouter.get("/auth/categories", async (_req: Request, res: Response) => {
@@ -61,6 +79,22 @@ authRouter.post("/auth/register", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Please enter a valid 11-digit NIN." });
     }
 
+    // Verify NIN via Prembly
+    if (hasNIN && nin) {
+      try {
+        const premblyResult = await verifyNIN(nin);
+        console.log(`[prembly] NIN verified for ${email}: ${premblyResult.nin_data.firstname} ${premblyResult.nin_data.surname}`);
+      } catch (err) {
+        if (err instanceof PremblyError) {
+          return res.status(400).json({
+            error: `NIN verification failed: ${err.message}`,
+          });
+        }
+        console.error("[prembly] Unexpected NIN verification error:", err);
+        return res.status(500).json({ error: "NIN verification failed due to an internal error. Please try again later." });
+      }
+    }
+
     const db = getDbPool();
 
     // Check if email already exists
@@ -79,6 +113,9 @@ authRouter.post("/auth/register", async (req: Request, res: Response) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
+    // Generate a unique membership code
+    const membershipCode = await generateMembershipCode(db);
+
     // Insert user
     const result = await db.query(
       `INSERT INTO users (
@@ -86,9 +123,10 @@ authRouter.post("/auth/register", async (req: Request, res: Response) => {
         state_of_origin, lga, residential_address,
         password_hash, membership_category_id, membership_category_name,
         nin, alt_id_type, alt_id_num, referral_name,
+        membership_code,
         is_verified, application_status
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
-      RETURNING id, first_name, last_name, email, application_status`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+      RETURNING id, first_name, last_name, email, application_status, membership_code`,
       [
         firstName.trim(), lastName.trim(), email.toLowerCase().trim(), phone.trim(),
         dateOfBirth, gender, stateOfOrigin, lga, residentialAddress,
@@ -97,6 +135,7 @@ authRouter.post("/auth/register", async (req: Request, res: Response) => {
         hasNIN ? null : (altIDType || null),
         hasNIN ? null : (altIDNum || null),
         referralName || null,
+        membershipCode,
         hasNIN, // auto-verified if NIN provided
         'pending_payment',
       ]

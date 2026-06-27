@@ -719,6 +719,15 @@ a:hover { color: var(--accent-hover); }
 .data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 14px; }
 .data-table tr:hover td { background: oklch(97% 0.003 252); }
 
+/* Table scroll container — keeps table scrollable without clipping dropdowns */
+.table-scroll { overflow-x: auto; }
+.table-scroll table { min-width: 700px; }
+
+/* For tables with dropdowns — overflow normally, unclip when dropdown is open */
+.table-scroll-wrap { overflow-x: auto; }
+.table-scroll-wrap table { min-width: 700px; }
+.table-scroll-wrap:has(.dropdown-menu) { overflow: visible; }
+
 /* Forms (portal) */
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: var(--fg); }
@@ -954,14 +963,14 @@ a:hover { color: var(--accent-hover); }
 .toast.error { background: var(--error); }
 
 /* Actions cell */
-.data-table .actions { display: flex; gap: 4px; flex-wrap: wrap; }
+.data-table .actions { display: flex; gap: 4px; flex-wrap: wrap; position: relative; }
 
 /* Dropdown menu for actions */
 .dropdown-wrapper { position: relative; display: inline-flex; }
 .dropdown-trigger { cursor: pointer; padding: 4px 8px; border-radius: var(--radius-sm); }
 .dropdown-trigger:hover { background: var(--bg); }
 .dropdown-menu {
-  position: absolute; right: 0; top: 100%; z-index: 100;
+  position: absolute; right: 0; top: 100%; z-index: 999;
   min-width: 170px; background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
   padding: 4px 0; margin-top: 4px;
@@ -1658,6 +1667,32 @@ a:hover { color: var(--accent-hover); }
   border: 2px solid oklch(100% 0 0 / .06);
   pointer-events: none;
 }
+
+/* ── Poster Carousel ── */
+.carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0,0,0,0.4);
+  border: none;
+  color: #fff;
+  font-size: 28px;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, opacity 0.2s;
+  opacity: 0;
+  z-index: 10;
+  line-height: 1;
+}
+.poster-carousel:hover .carousel-arrow { opacity: 1; }
+.carousel-arrow:hover { background: rgba(0,0,0,0.7); }
+.carousel-arrow-left { left: 12px; }
+.carousel-arrow-right { right: 12px; }
 
 /* ── Fade-in on scroll (uses Intersection Observer) ── */
 .reveal {

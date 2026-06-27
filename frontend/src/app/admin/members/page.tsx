@@ -29,6 +29,12 @@ interface Member {
   annualDevelopmentalFeePaid?: boolean;
   annualDevelopmentalFeeYear?: number | null;
   developmentalLevyAmount?: number | null;
+
+  // Verification / ID fields
+  nin: string | null;
+  altIdType: string | null;
+  altIdNum: string | null;
+  hasNin: boolean;
 }
 
 interface PaymentRecord {
@@ -138,6 +144,34 @@ export default function AdminMembersPage() {
   const [resetPwdMode, setResetPwdMode] = useState<"email" | "manual">("email");
   const [resetPwdNewPassword, setResetPwdNewPassword] = useState("");
   const [resettingPwd, setResettingPwd] = useState(false);
+
+  // NIN Verification modal
+  const [showNinVerify, setShowNinVerify] = useState(false);
+  const [ninVerifyTarget, setNinVerifyTarget] = useState<Member | null>(null);
+  const [ninVerifying, setNinVerifying] = useState(false);
+  const [ninVerifyResult, setNinVerifyResult] = useState<{
+    verified: boolean;
+    message: string;
+    nin: string;
+    data?: {
+      firstName: string;
+      lastName: string;
+      middlename: string;
+      dateOfBirth: string;
+      gender: string;
+      phone: string;
+      photo: string;
+      signature?: string;
+      address: string;
+      stateOfOrigin: string;
+      lga: string;
+      maritalStatus: string;
+      profession: string;
+      educationalLevel: string;
+      employmentStatus: string;
+      religion: string;
+    };
+  } | null>(null);
 
   function showToast(msg: string, type: string) {
     setToast({ msg, type });
@@ -337,7 +371,9 @@ export default function AdminMembersPage() {
       lastName: m.lastName,
       email: m.email,
       phone: m.phone,
-      membershipCode: m.mno === "—" ? "" : m.mno,
+      nin: m.nin || "",
+      altIdType: m.altIdType || "",
+      altIdNum: m.altIdNum || "",
     });
     setShowEdit(true);
   }
@@ -351,7 +387,9 @@ export default function AdminMembersPage() {
       email: editForm.email,
       phone: editForm.phone,
       membershipCategoryName: "Member",
-      membershipCode: editForm.membershipCode || null,
+      nin: editForm.nin || null,
+      altIdType: editForm.altIdType || null,
+      altIdNum: editForm.altIdNum || null,
     });
     setEditing(false);
     if (res.error) {
@@ -482,6 +520,31 @@ export default function AdminMembersPage() {
     }
   }
 
+  // ─── NIN Verification via Prembly ──────────────────────────────────────────
+  function openNinVerify(m: Member) {
+    setNinVerifyTarget(m);
+    setNinVerifyResult(null);
+    setShowNinVerify(true);
+  }
+
+  async function handleVerifyNIN() {
+    if (!ninVerifyTarget) return;
+    setNinVerifying(true);
+    setNinVerifyResult(null);
+    const res = await api.verifyMemberNIN(ninVerifyTarget.id);
+    setNinVerifying(false);
+    if (res.error) {
+      setNinVerifyResult({ verified: false, message: res.error, nin: "" });
+    } else if (res.data) {
+      setNinVerifyResult({
+        verified: res.data.verified,
+        message: res.data.message,
+        nin: res.data.nin,
+        data: res.data.data,
+      });
+    }
+  }
+
   return (
     <>
       <div className="card">
@@ -592,6 +655,9 @@ export default function AdminMembersPage() {
                             <button className="dropdown-item" onClick={() => { openResetPwd(m); setOpenMenuId(null); }}>
                               🔑 Reset Pwd
                             </button>
+                            <button className="dropdown-item" onClick={() => { openNinVerify(m); setOpenMenuId(null); }}>
+                              🆔 Verify NIN
+                            </button>
                             <div className="dropdown-divider" />
                             {m.status === "Pending" ? (
                               <>
@@ -647,7 +713,20 @@ export default function AdminMembersPage() {
               <div><strong>Expiry</strong><br /><span style={{ color: "var(--muted)" }}>{panel.expiry ? new Date(panel.expiry).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</span></div>
               <div><strong>Email</strong><br /><span style={{ color: "var(--muted)" }}>{panel.email}</span></div>
               <div><strong>Phone</strong><br /><span style={{ color: "var(--muted)" }}>{panel.phone}</span></div>
+              <div><strong>Verified</strong><br /><span style={{ color: "var(--muted)" }}>{panel.isVerified ? "✅ Yes" : "❌ No"}</span></div>
               <div style={{ gridColumn: "1 / -1" }}><strong>Address</strong><br /><span style={{ color: "var(--muted)" }}>{panel.residentialAddress || "—"}</span></div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <strong>Identity Verification Method</strong><br />
+                <span style={{ color: "var(--muted)" }}>
+                  {panel.hasNin ? (
+                    <>NIN: {panel.nin}</>
+                  ) : panel.altIdType ? (
+                    <>{panel.altIdType}: {panel.altIdNum || "—"}</>
+                  ) : (
+                    "Not provided"
+                  )}
+                </span>
+              </div>
             </div>
             <hr style={{ borderColor: "var(--border)", marginBottom: 16 }} />
             <h4>Payment History</h4>
@@ -838,10 +917,49 @@ export default function AdminMembersPage() {
               </div>
               <div className="form-group">
                 <label>Membership No</label>
+                <div style={{
+                  padding: "11px 14px", border: "1px solid var(--border-strong)",
+                  borderRadius: "var(--radius-md)", fontSize: 14,
+                  background: "var(--bg)", color: "var(--muted)",
+                }}>
+                  {editTarget?.mno !== "—" ? editTarget?.mno : "Auto-generated on approval"}
+                </div>
+              </div>
+            </div>
+            <hr style={{ borderColor: "var(--border)", margin: "14px 0" }} />
+            <h4 style={{ fontSize: 13, marginBottom: 10 }}>Identity Verification</h4>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div className="form-group">
+                <label>NIN (11 digits)</label>
                 <input
                   type="text"
-                  value={editForm.membershipCode || ""}
-                  onChange={(e) => setEditForm({ ...editForm, membershipCode: e.target.value })}
+                  value={editForm.nin || ""}
+                  onChange={(e) => setEditForm({ ...editForm, nin: e.target.value })}
+                  placeholder="e.g. 12345678901"
+                  maxLength={11}
+                />
+              </div>
+              <div className="form-group">
+                <label>Other ID Type</label>
+                <select
+                  value={editForm.altIdType || ""}
+                  onChange={(e) => setEditForm({ ...editForm, altIdType: e.target.value })}
+                >
+                  <option value="">— None —</option>
+                  <option value="Driver's License">Driver&apos;s License</option>
+                  <option value="International Passport">International Passport</option>
+                  <option value="Voter's Card">Voter&apos;s Card</option>
+                  <option value="National ID Card">National ID Card</option>
+                  <option value="Others">Others</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Other ID Number</label>
+                <input
+                  type="text"
+                  value={editForm.altIdNum || ""}
+                  onChange={(e) => setEditForm({ ...editForm, altIdNum: e.target.value })}
+                  placeholder="ID number"
                 />
               </div>
             </div>
@@ -1165,6 +1283,116 @@ export default function AdminMembersPage() {
                   {resettingPwd ? "Resetting…" : "Set New Password"}
                 </button>
               </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── NIN Verification Modal ──────────────────────────────────────── */}
+      {showNinVerify && ninVerifyTarget && (
+        <div className="modal-overlay open" onClick={() => { if (!ninVerifying) { setShowNinVerify(false); setNinVerifyResult(null); } }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
+            <button className="modal-close" onClick={() => { setShowNinVerify(false); setNinVerifyResult(null); }} disabled={ninVerifying}>✕</button>
+            <h3>NIN Verification</h3>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 14 }}>
+              Member: <strong>{ninVerifyTarget.name}</strong> ({ninVerifyTarget.email})
+            </p>
+
+            {!ninVerifyResult ? (
+              <div style={{ textAlign: "center", padding: "24px 0" }}>
+                {ninVerifying ? (
+                  <p style={{ color: "var(--muted)" }}><span className="loader-dot" /> Verifying NIN…</p>
+                ) : (
+                  <>
+                    <p style={{ fontSize: 13, color: "var(--text)", marginBottom: 16 }}>
+                      This will verify the member&apos;s NIN.
+                      A wallet charge may apply.
+                    </p>
+                    <button
+                      className="btn btn-accent"
+                      style={{ width: "100%" }}
+                      onClick={handleVerifyNIN}
+                    >
+                      Verify NIN Now
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : ninVerifyResult.verified ? (
+              <div>
+                <div style={{
+                  background: "var(--green-light)", border: "1px solid var(--green)",
+                  borderRadius: "var(--radius-md)", padding: 12, marginBottom: 16,
+                  textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--green-dark)",
+                }}>
+                  ✅ {ninVerifyResult.message}
+                </div>
+
+                {ninVerifyResult.data?.photo && (
+                  <div style={{ textAlign: "center", marginBottom: 16 }}>
+                    <img
+                      src={`data:image/jpeg;base64,${ninVerifyResult.data.photo}`}
+                      alt="NIN Photo"
+                      style={{
+                        width: 120, height: 120, borderRadius: "50%",
+                        objectFit: "cover", border: "2px solid var(--border)",
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 13 }}>
+                  <div><strong>First Name</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.firstName || "—"}</span></div>
+                  <div><strong>Last Name</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.lastName || "—"}</span></div>
+                  <div><strong>Middle Name</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.middlename || "—"}</span></div>
+                  <div><strong>Date of Birth</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.dateOfBirth || "—"}</span></div>
+                  <div><strong>Gender</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.gender || "—"}</span></div>
+                  <div><strong>Phone</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.phone || "—"}</span></div>
+                  <div><strong>Marital Status</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.maritalStatus || "—"}</span></div>
+                  <div><strong>Profession</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.profession || "—"}</span></div>
+                  <div><strong>Education</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.educationalLevel || "—"}</span></div>
+                  <div><strong>Employment</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.employmentStatus || "—"}</span></div>
+                  <div><strong>Religion</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.religion || "—"}</span></div>
+                  <div><strong>State of Origin</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.stateOfOrigin || "—"}</span></div>
+                  <div style={{ gridColumn: "1 / -1" }}><strong>Address</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.address || "—"}</span></div>
+                </div>
+
+                {ninVerifyResult.data?.signature && (
+                  <div style={{ marginTop: 16, textAlign: "center" }}>
+                    <strong style={{ fontSize: 13 }}>Signature</strong><br />
+                    <img
+                      src={`data:image/jpeg;base64,${ninVerifyResult.data.signature}`}
+                      alt="Signature"
+                      style={{ height: 40, marginTop: 4, border: "1px solid var(--border)", borderRadius: 4 }}
+                    />
+                  </div>
+                )}
+
+                <button
+                  className="btn btn-outline"
+                  style={{ width: "100%", marginTop: 16 }}
+                  onClick={() => { setShowNinVerify(false); setNinVerifyResult(null); }}
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div style={{
+                  background: "#fff0f0", border: "1px solid var(--danger)",
+                  borderRadius: "var(--radius-md)", padding: 12, marginBottom: 16,
+                  textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--danger)",
+                }}>
+                  ❌ {ninVerifyResult.message}
+                </div>
+                <button
+                  className="btn btn-outline"
+                  style={{ width: "100%" }}
+                  onClick={() => { setNinVerifyResult(null); }}
+                >
+                  Try Again
+                </button>
+              </div>
             )}
           </div>
         </div>
