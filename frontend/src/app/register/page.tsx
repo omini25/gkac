@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
-import { api, type Category } from "@/lib/api";
+import { api, validateFileSize, type Category } from "@/lib/api";
 
 function togglePassword(inputId: string, btn: HTMLElement) {
   const input = document.getElementById(inputId) as HTMLInputElement;
@@ -685,7 +685,11 @@ export default function RegisterPage() {
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp,application/pdf"
-                        onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) { const err = validateFileSize(f, "proofFile"); if (err) { setApiError(err); e.target.value = ""; return; } }
+                          setProofFile(f || null);
+                        }}
                         style={{ display: "none" }}
                       />
                     </label>

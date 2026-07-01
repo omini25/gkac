@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useAuth, getExpiryInfo } from "@/lib/useAuth";
-import { api, type NewsItem, type EventItem, type Election, type PaymentRecord, type RenewMembershipResult } from "@/lib/api";
+import { api, validateFileSize, type NewsItem, type EventItem, type Election, type PaymentRecord, type RenewMembershipResult } from "@/lib/api";
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -471,7 +471,11 @@ export default function DashboardPage() {
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
-                  onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) { const err = validateFileSize(f, "proofFile"); if (err) { setRenewError(err); e.target.value = ""; return; } }
+                  setProofFile(f || null);
+                }}
                   style={{ marginBottom: 12 }}
                 />
                 {renewError && <p className="form-error visible" style={{ marginBottom: 12 }}>{renewError}</p>}

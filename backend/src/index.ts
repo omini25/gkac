@@ -63,6 +63,34 @@ app.use("/api", contactRouter);
 app.use("/api", duesRouter);
 app.use("/api", meetingsRouter);
 
+  // ─── Global error handler (catches MulterError and other request errors) ──
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    // Multer file size error
+    if (err.code === "LIMIT_FILE_SIZE") {
+      const fieldName = err.field || "file";
+      return res.status(413).json({
+        error: `The ${fieldName} file exceeds the maximum allowed size. Please upload a smaller file.`,
+      });
+    }
+    // Multer unexpected file / field errors
+    if (err.code === "LIMIT_UNEXPECTED_FILE") {
+      return res.status(400).json({
+        error: "Unexpected file field. Please check your upload and try again.",
+      });
+    }
+    // Multer file type errors (custom fileFilter rejections)
+    if (err.message && (err.message.includes("File type") || err.message.includes("Only"))) {
+      return res.status(400).json({ error: err.message });
+    }
+    // Generic multer errors
+    if (err.name === "MulterError") {
+      return res.status(400).json({ error: `Upload error: ${err.message}` });
+    }
+    // Pass through to default Express error handler
+    console.error("Unhandled error:", err);
+    return res.status(500).json({ error: "An unexpected error occurred." });
+  });
+
   // Example: items route with Redis caching
   app.get("/api/items", async (_req, res) => {
     try {

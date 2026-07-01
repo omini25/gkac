@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { api, type Election, type ElectionPosition, type ElectionCandidate, type ElectionDeclaration, type ElectionResults } from "@/lib/api";
+import { api, validateFileSize, type Election, type ElectionPosition, type ElectionCandidate, type ElectionDeclaration, type ElectionResults } from "@/lib/api";
 import { useAuth } from "@/lib/useAuth";
 import Link from "next/link";
 
@@ -376,6 +376,8 @@ export default function ElectionsPage() {
                                   disabled={uploadingPhoto}
                                   onChange={async (e) => {
                                     if (e.target.files && e.target.files[0]) {
+                                      const err = validateFileSize(e.target.files[0], "candidatePhoto");
+                                      if (err) { showToast(err, "error"); e.target.value = ""; return; }
                                       setUploadingPhoto(true);
                                       const res = await api.uploadCandidatePhoto(matchingCandidate.id, e.target.files[0]);
                                       if (res.data) {
@@ -670,6 +672,8 @@ export default function ElectionsPage() {
                   style={{ display: "none" }}
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
+                      const err = validateFileSize(e.target.files[0], "formFile");
+                      if (err) { showToast(err, "error"); e.target.value = ""; return; }
                       setDeclareFormFile(e.target.files[0]);
                     }
                   }}
@@ -742,6 +746,8 @@ export default function ElectionsPage() {
                   style={{ display: "none" }}
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
+                      const err = validateFileSize(e.target.files[0], "proofFile");
+                      if (err) { showToast(err, "error"); e.target.value = ""; return; }
                       setDeclareProofFile(e.target.files[0]);
                     }
                   }}
@@ -919,6 +925,8 @@ export default function ElectionsPage() {
                   style={{ display: "none" }}
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
+                      const err = validateFileSize(e.target.files[0], "formFile");
+                      if (err) { showToast(err, "error"); e.target.value = ""; return; }
                       setNominateFormFile(e.target.files[0]);
                     }
                   }}
@@ -990,9 +998,11 @@ export default function ElectionsPage() {
                   style={{ display: "none" }}
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
+                      const err = validateFileSize(e.target.files[0], "proofFile");
+                      if (err) { showToast(err, "error"); e.target.value = ""; return; }
                       setNominateProofFile(e.target.files[0]);
                     }
-                  }}
+ }}
                 />
               </div>
             </div>

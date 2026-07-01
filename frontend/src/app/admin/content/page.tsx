@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { api } from "@/lib/api";
+import { api, validateFileSize } from "@/lib/api";
 import type { NewsItem, EventItem, LeaderItem, FaqItem } from "@/lib/api";
 
 const TABS = [
@@ -100,6 +100,8 @@ function EventModal({ item, onClose, onSaved }: { item: EventItem | null; onClos
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const sizeErr = validateFileSize(file, "contentImage");
+    if (sizeErr) { alert(sizeErr); e.target.value = ""; return; }
     setUploading(true);
     try {
       const fd = new FormData();
@@ -173,6 +175,8 @@ function LeaderModal({ item, onClose, onSaved }: { item: LeaderItem | null; onCl
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const sizeErr = validateFileSize(file, "contentImage");
+    if (sizeErr) { alert(sizeErr); e.target.value = ""; return; }
     setUploading(true);
     try {
       const fd = new FormData();

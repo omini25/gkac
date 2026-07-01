@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/useAuth";
-import { api, type PaymentRecord, type RenewMembershipResult } from "@/lib/api";
+import { api, validateFileSize, type PaymentRecord, type RenewMembershipResult } from "@/lib/api";
 
 export default function BillingPage() {
   const { user } = useAuth();
@@ -310,7 +310,11 @@ export default function BillingPage() {
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
-                  onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) { const err = validateFileSize(f, "proofFile"); if (err) { setPayError(err); e.target.value = ""; return; } }
+                  setProofFile(f || null);
+                }}
                   style={{ marginBottom: 12, fontSize: 14 }}
                 />
                 {proofFile && (

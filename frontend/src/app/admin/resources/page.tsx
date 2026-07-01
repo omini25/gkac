@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { api, type Resource } from "@/lib/api";
+import { api, validateFileSize, type Resource } from "@/lib/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 const CATEGORIES = ["cpd", "policy", "forms", "reports", "guides", "general"];
@@ -94,7 +94,11 @@ function ResourceModal({
           {!resource && (
             <div className="form-group">
               <label>File *</label>
-              <input type="file" required={!resource} onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              <input type="file" required={!resource} onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) { const err = validateFileSize(f, "resource"); if (err) { alert(err); e.target.value = ""; return; } }
+                setFile(f || null);
+              }} />
               <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
                 PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, images, TXT, CSV, ZIP (max 50 MB)
               </div>
@@ -138,7 +142,11 @@ function ReplaceModal({ resource, onClose, onSaved }: {
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>New File *</label>
-            <input type="file" required onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            <input type="file" required onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) { const err = validateFileSize(f, "resource"); if (err) { alert(err); e.target.value = ""; return; } }
+                setFile(f || null);
+              }} />
           </div>
           <button type="submit" className="btn btn-accent" disabled={saving || !file}>
             {saving ? "Replacing…" : "Replace File"}

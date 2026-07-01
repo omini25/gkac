@@ -1,5 +1,34 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
+/** Maximum file sizes per upload type (in MB) */
+export const UPLOAD_LIMITS = {
+  /** Candidate/declaration form uploads (PDF, DOC, images) */
+  formFile: 20,
+  /** Payment proof uploads (receipt screenshots) */
+  proofFile: 5,
+  /** Candidate profile photos */
+  candidatePhoto: 5,
+  /** Election campaign posters */
+  poster: 10,
+  /** Resource documents */
+  resource: 50,
+  /** Content images (news, events, leadership) */
+  contentImage: 10,
+} as const;
+
+/**
+ * Validates a file against a maximum size limit.
+ * Returns an error string if the file exceeds the limit, or null if it's OK.
+ */
+export function validateFileSize(file: File, type: keyof typeof UPLOAD_LIMITS): string | null {
+  const maxMB = UPLOAD_LIMITS[type];
+  const maxBytes = maxMB * 1024 * 1024;
+  if (file.size > maxBytes) {
+    return `File too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). Maximum allowed is ${maxMB} MB for ${type === "formFile" ? "forms" : type === "proofFile" ? "payment proofs" : type === "candidatePhoto" ? "candidate photos" : type === "poster" ? "posters" : type === "resource" ? "resources" : "images"}.`;
+  }
+  return null;
+}
+
 interface ApiResult<T> {
   data?: T;
   error?: string;

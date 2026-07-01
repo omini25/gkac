@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { api, type Election, type ElectionDetail, type ElectionPosition, type ElectionDeclaration, type ElectionResults } from "@/lib/api";
+import { api, validateFileSize, type Election, type ElectionDetail, type ElectionPosition, type ElectionDeclaration, type ElectionResults } from "@/lib/api";
 
 export default function AdminElectionsPage() {
   const [elections, setElections] = useState<Election[]>([]);
@@ -503,6 +503,11 @@ export default function AdminElectionsPage() {
   async function handleUploadPosters(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files || e.target.files.length === 0 || !showPosters) return;
     const files = Array.from(e.target.files);
+    // Validate each file size
+    for (const file of files) {
+      const err = validateFileSize(file, "poster");
+      if (err) { showToast(err, "error"); e.target.value = ""; setPosterUploading(false); return; }
+    }
     const count = files.length;
     setPosterUploading(true);
     const res = await api.uploadPosters(files, showPosters);
@@ -743,6 +748,8 @@ export default function AdminElectionsPage() {
                                   disabled={uploadingDeclPhoto === (d as any).candidate_id}
                                   onChange={async (e) => {
                                     if (e.target.files && e.target.files[0]) {
+                                      const err = validateFileSize(e.target.files[0], "candidatePhoto");
+                                      if (err) { showToast(err, "error"); e.target.value = ""; return; }
                                       setUploadingDeclPhoto((d as any).candidate_id);
                                       const res = await api.uploadCandidatePhoto((d as any).candidate_id, e.target.files[0]);
                                       if (res.data) {
@@ -1431,6 +1438,8 @@ export default function AdminElectionsPage() {
                   style={{ display: "none" }}
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
+                      const err = validateFileSize(e.target.files[0], "formFile");
+                      if (err) { showToast(err, "error"); e.target.value = ""; return; }
                       setAddDeclFormFile(e.target.files[0]);
                     }
                   }}
@@ -1473,6 +1482,8 @@ export default function AdminElectionsPage() {
                   style={{ display: "none" }}
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
+                      const err = validateFileSize(e.target.files[0], "candidatePhoto");
+                      if (err) { showToast(err, "error"); e.target.value = ""; return; }
                       setAddDeclPhotoFile(e.target.files[0]);
                     }
                   }}
@@ -1509,6 +1520,8 @@ function ResultsView({ results, onClose }: { results: ElectionResults; onClose: 
   const [photoToast, setPhotoToast] = useState("");
 
   async function handleCandidatePhotoUpload(candidateId: string, file: File) {
+    const sizeErr = validateFileSize(file, "candidatePhoto");
+    if (sizeErr) { setPhotoToast(sizeErr); setTimeout(() => setPhotoToast(""), 3000); return; }
     setUploadingFor(candidateId);
     try {
       const res = await api.uploadCandidatePhoto(candidateId, file);

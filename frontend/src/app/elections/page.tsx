@@ -160,82 +160,158 @@ export default function PublicElectionsPage() {
   return (
     <div className="page-section">
       <div className="container">
-        <div className="section-header">
-          <div className="section-divider" />
-          <h2>Elections</h2>
-          <p>
-            Stay informed about GKAC elections — view schedules, candidates, and results
-            for all club elections.
-          </p>
+
+        {/* ════════════════════════════════════════════════ */}
+        {/* HERO HEADER                                     */}
+        {/* ════════════════════════════════════════════════ */}
+        <div style={{
+          textAlign: "center",
+          padding: "48px 24px 40px",
+          marginBottom: "var(--space-4)",
+          background: "linear-gradient(135deg, var(--navy) 0%, #1a2a4a 100%)",
+          borderRadius: "var(--radius-lg)",
+          color: "#fff",
+          position: "relative",
+          overflow: "hidden",
+        }}>
+          <div style={{
+            position: "absolute", inset: 0,
+            background: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
+            opacity: 0.5,
+          }} />
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              background: "rgba(255,255,255,0.1)", backdropFilter: "blur(8px)",
+              padding: "6px 16px", borderRadius: 20, fontSize: 13,
+              marginBottom: 16, fontWeight: 600,
+            }}>
+              🗳️ 2026-2028 Election Season
+            </div>
+            <h1 style={{ fontSize: "clamp(28px, 5vw, 42px)", margin: "0 0 12px", fontWeight: 800, letterSpacing: "-0.5px" }}>
+              GKAC Elections
+            </h1>
+            <p style={{ fontSize: 16, opacity: 0.8, maxWidth: 560, margin: "0 auto", lineHeight: 1.6 }}>
+              Stay informed about GKAC elections — view schedules, candidates, and results for all club elections.
+            </p>
+          </div>
         </div>
 
         {/* ════════════════════════════════════════════════ */}
-        {/* ELECTION CALENDAR — 2026-2028 Timeline          */}
+        {/* IMPORTANT NOTICE                                */}
         {/* ════════════════════════════════════════════════ */}
         <div className="card" style={{
-          marginBottom: "var(--space-4)", background: "var(--green-light)",
-          border: "1px solid var(--green)", textAlign: "center",
+          marginBottom: "var(--space-4)",
+          background: "linear-gradient(135deg, #fef9e7 0%, #fdf2d7 100%)",
+          border: "1px solid #f0d78c",
+          borderRadius: "var(--radius-lg)",
+          padding: "20px 24px",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 14,
         }}>
-          <p style={{ fontWeight: 700, marginBottom: "var(--space-1)" }}>
-            ⚠️ IMPORTANT NOTICE — 2026-2028 ELECTION PROCESS
-          </p>
-          <p style={{ margin: 0, fontSize: 15 }}>
-            The Electoral Committee has kick-started the Year 2026-2028 Election Process.
-            Payment of all allotted fees validates eligibility to be voted for.
-          </p>
-        </div>
-
-        <div className="milestone-timeline" style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}>
-          {ELECTION_TIMELINE.map((item, idx) => (
-            <div key={idx} className="milestone-item" style={{
-              borderLeft: item.status === "active" ? "4px solid var(--accent)" : "4px solid var(--border)",
-            }}>
-              <div className="milestone-year" style={{
-                background: item.status === "active" ? "var(--accent)" : "var(--muted)",
-                color: "#fff",
-              }}>
-                {item.date}
-              </div>
-              <h4>{item.title}</h4>
-              <p>{item.description}</p>
-              {item.time && (
-                <p style={{ fontWeight: 600, marginTop: "var(--space-1)" }}>
-                  🕐 {item.time}
-                </p>
-              )}
-              {item.status === "active" && (
-                <span className="status-badge status-active" style={{ marginTop: "var(--space-1)", display: "inline-block" }}>
-                  ● Active Now
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Payment Info */}
-        {/* <div className="card" style={{ maxWidth: 600, margin: "0 auto var(--space-4)", textAlign: "center" }}>
-          <h4 style={{ marginBottom: "var(--space-1)" }}>Election Process Payment Account</h4>
           <div style={{
-            background: "var(--green-light)", padding: "var(--space-2)",
-            borderRadius: "var(--radius-md)",
-          }}>
-            <p style={{ fontWeight: 700, margin: 0 }}>Opay Account</p>
-            <p style={{ fontSize: "24px", fontWeight: 700, margin: "var(--space-1) 0", fontFamily: "var(--font-mono)" }}>
-              703 5330 954
+            fontSize: 24, flexShrink: 0, lineHeight: 1, marginTop: 2,
+          }}>⚠️</div>
+          <div>
+            <p style={{ fontWeight: 700, margin: "0 0 6px", fontSize: 15, color: "#8b6914" }}>
+              2026-2028 ELECTION PROCESS — IMPORTANT NOTICE
             </p>
-            <p style={{ margin: 0 }}>Oluyemi Akintayo</p>
+            <p style={{ margin: 0, fontSize: 14, color: "#6b4f0e", lineHeight: 1.6 }}>
+              The Electoral Committee has kick-started the Year 2026-2028 Election Process.
+              Payment of all allotted fees validates eligibility to be voted for.
+            </p>
           </div>
-          <p style={{ color: "var(--muted)", fontSize: "13px", marginTop: "var(--space-1)" }}>
-            PRO, Electoral Committee — Ambassador Oluyemi Akintayo (Pemisire)
-          </p>
-        </div> */}
+        </div>
+
+        {/* ════════════════════════════════════════════════ */}
+        {/* ELECTION TIMELINE                               */}
+        {/* ════════════════════════════════════════════════ */}
+        <div style={{
+          maxWidth: 800, margin: "0 auto var(--space-4)",
+          background: "var(--surface)", borderRadius: "var(--radius-lg)",
+          border: "1px solid var(--border)", overflow: "hidden",
+        }}>
+          <div style={{
+            padding: "16px 24px",
+            borderBottom: "1px solid var(--border)",
+            background: "var(--bg)",
+            fontWeight: 700, fontSize: 15,
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            📅 Election Calendar — Key Dates
+          </div>
+          <div style={{ padding: "16px 24px" }}>
+            {ELECTION_TIMELINE.map((item, idx) => (
+              <div key={idx} style={{
+                display: "flex", gap: 16,
+                padding: "14px 0",
+                borderBottom: idx < ELECTION_TIMELINE.length - 1 ? "1px solid var(--border)" : "none",
+                opacity: item.status === "active" ? 1 : 0.75,
+              }}>
+                {/* Timeline indicator */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+                  <div style={{
+                    width: 12, height: 12, borderRadius: "50%",
+                    background: item.status === "active" ? "var(--accent)" : "var(--muted)",
+                    border: item.status === "active" ? "3px solid oklch(65% 0.15 40 / 0.3)" : "none",
+                    flexShrink: 0,
+                  }} />
+                  {idx < ELECTION_TIMELINE.length - 1 && (
+                    <div style={{ width: 2, flex: 1, minHeight: 24, background: "var(--border)" }} />
+                  )}
+                </div>
+                {/* Content */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    display: "inline-block",
+                    fontSize: 12, fontWeight: 700, color: "#fff",
+                    background: item.status === "active" ? "var(--accent)" : "var(--muted)",
+                    padding: "2px 10px", borderRadius: 10,
+                    marginBottom: 6,
+                  }}>
+                    {item.date}
+                  </div>
+                  <h4 style={{
+                    fontSize: 15, margin: "2px 0 4px",
+                    color: item.status === "active" ? "var(--accent)" : "var(--fg)",
+                  }}>
+                    {item.title}
+                  </h4>
+                  <p style={{ fontSize: 13, color: "var(--muted)", margin: 0, lineHeight: 1.6 }}>
+                    {item.description}
+                  </p>
+                  {item.time && (
+                    <p style={{ fontWeight: 600, fontSize: 13, marginTop: 6, color: "var(--accent)" }}>
+                      🕐 {item.time}
+                    </p>
+                  )}
+                  {item.status === "active" && (
+                    <span className="status-badge status-active" style={{ marginTop: 6, display: "inline-block", fontSize: 11 }}>
+                      ● Active Now
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Action Buttons */}
-        <div style={{ textAlign: "center", marginBottom: "var(--space-4)", display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
-          <Link href="/dashboard/elections" className="btn btn-accent btn-lg">
+        <div style={{
+          textAlign: "center", marginBottom: "var(--space-4)",
+          display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap",
+        }}>
+          <Link href="/dashboard/elections" className="btn btn-accent btn-lg" style={{
+            borderRadius: "var(--radius-md)", fontWeight: 700,
+            padding: "12px 28px", fontSize: 15,
+          }}>
             📝 Declaration of Interest
           </Link>
-          <Link href="/dashboard/elections" className="btn btn-outline btn-lg">
+          <Link href="/dashboard/elections" className="btn btn-outline btn-lg" style={{
+            borderRadius: "var(--radius-md)", fontWeight: 600,
+            padding: "12px 28px", fontSize: 15,
+          }}>
             📋 Nomination Form
           </Link>
         </div>
@@ -279,20 +355,28 @@ export default function PublicElectionsPage() {
         {/* ════════════════════════════════════════════════ */}
         {/* ELECTION LISTS                                  */}
         {/* ════════════════════════════════════════════════ */}
-        <div style={{ borderTop: "1px solid var(--border)", paddingTop: "var(--space-4)" }}>
-          <div className="tabs" style={{ marginBottom: 24 }}>
-            <button className={`tab-btn${activeTab === "active" ? " active" : ""}`} onClick={() => setActiveTab("active")}>
-              Active {activeElections.length > 0 && `(${activeElections.length})`}
-            </button>
-            <button className={`tab-btn${activeTab === "upcoming" ? " active" : ""}`} onClick={() => setActiveTab("upcoming")}>
-              Upcoming
-            </button>
-            <button className={`tab-btn${activeTab === "past" ? " active" : ""}`} onClick={() => setActiveTab("past")}>
-              Past Results
-            </button>
+        <div style={{
+          background: "var(--surface)", borderRadius: "var(--radius-lg)",
+          border: "1px solid var(--border)", overflow: "hidden",
+        }}>
+          <div style={{
+            padding: "16px 24px", borderBottom: "1px solid var(--border)",
+            background: "var(--bg)",
+          }}>
+            <div className="tabs" style={{ margin: 0 }}>
+              <button className={`tab-btn${activeTab === "active" ? " active" : ""}`} onClick={() => setActiveTab("active")}>
+                🗳️ Active {activeElections.length > 0 && <span className="badge badge-active" style={{ marginLeft: 6 }}>{activeElections.length}</span>}
+              </button>
+              <button className={`tab-btn${activeTab === "upcoming" ? " active" : ""}`} onClick={() => setActiveTab("upcoming")}>
+                📅 Upcoming
+              </button>
+              <button className={`tab-btn${activeTab === "past" ? " active" : ""}`} onClick={() => setActiveTab("past")}>
+                📊 Past Results
+              </button>
+            </div>
           </div>
 
-          <div style={{ maxWidth: 800, margin: "0 auto" }}>
+          <div style={{ padding: "20px 24px" }}>
             {/* ═══ ACTIVE ═══ */}
             <div className={`tab-panel${activeTab === "active" ? " active" : ""}`}>
               {loading ? (
@@ -378,24 +462,56 @@ export default function PublicElectionsPage() {
       {/* ═══ ELECTION DETAIL MODAL ═══ */}
       {detailElection && (
         <div className="modal-overlay open" onClick={() => setDetailElection(null)}>
-          <div className="modal" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 520, borderRadius: "var(--radius-lg)" }} onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setDetailElection(null)}>✕</button>
-            <h3 style={{ marginBottom: 8 }}>{detailElection.title}</h3>
-            <span className={`status-badge ${getStatusClass(detailElection.status)}`} style={{ marginBottom: 16, display: "inline-block" }}>
-              {getStatusLabel(detailElection.status)}
-            </span>
-            {detailElection.description && <p style={{ marginTop: 12, color: "var(--muted)" }}>{detailElection.description}</p>}
-            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8, fontSize: 14 }}>
-              {detailElection.start_date && <div><strong>Voting opens:</strong> {formatDate(detailElection.start_date)}</div>}
-              {detailElection.end_date && <div><strong>Voting closes:</strong> {formatDate(detailElection.end_date)}</div>}
-              <div><strong>Positions available:</strong> {detailElection.positions_count}</div>
-              {detailElection.status !== "draft" && detailElection.status !== "upcoming" && <div><strong>Total votes cast:</strong> {detailElection.total_votes}</div>}
+            <div style={{ marginBottom: 20 }}>
+              <h3 style={{ marginBottom: 6, fontSize: 20 }}>{detailElection.title}</h3>
+              <span className={`status-badge ${getStatusClass(detailElection.status)}`} style={{ fontSize: 12 }}>
+                ● {getStatusLabel(detailElection.status)}
+              </span>
+            </div>
+            {detailElection.description && (
+              <p style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
+                {detailElection.description}
+              </p>
+            )}
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px",
+              fontSize: 14, background: "var(--bg)", padding: 16,
+              borderRadius: "var(--radius-md)",
+            }}>
+              {detailElection.start_date && (
+                <>
+                  <span style={{ color: "var(--muted)" }}>Voting opens</span>
+                  <span style={{ fontWeight: 600, textAlign: "right" }}>{formatDate(detailElection.start_date)}</span>
+                </>
+              )}
+              {detailElection.end_date && (
+                <>
+                  <span style={{ color: "var(--muted)" }}>Voting closes</span>
+                  <span style={{ fontWeight: 600, textAlign: "right" }}>{formatDate(detailElection.end_date)}</span>
+                </>
+              )}
+              <>
+                <span style={{ color: "var(--muted)" }}>Positions</span>
+                <span style={{ fontWeight: 600, textAlign: "right" }}>{detailElection.positions_count}</span>
+              </>
+              {detailElection.status !== "draft" && detailElection.status !== "upcoming" && (
+                <>
+                  <span style={{ color: "var(--muted)" }}>Total votes</span>
+                  <span style={{ fontWeight: 600, textAlign: "right" }}>{detailElection.total_votes}</span>
+                </>
+              )}
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
               {(detailElection.status === "active" || detailElection.status === "closed") && (
-                <button className="btn btn-accent" onClick={() => { setDetailElection(null); openResults(detailElection.id); }}>View Results</button>
+                <button className="btn btn-accent" style={{ flex: 1, borderRadius: "var(--radius-md)" }}
+                  onClick={() => { setDetailElection(null); openResults(detailElection.id); }}>
+                  📊 View Results
+                </button>
               )}
-              <button className="btn btn-ghost" onClick={() => setDetailElection(null)}>Close</button>
+              <button className="btn btn-ghost" style={{ borderRadius: "var(--radius-md)" }}
+                onClick={() => setDetailElection(null)}>Close</button>
             </div>
           </div>
         </div>
@@ -404,65 +520,132 @@ export default function PublicElectionsPage() {
       {/* ═══ RESULTS MODAL ═══ */}
       {results && (
         <div className="modal-overlay open" onClick={() => setResults(null)}>
-          <div className="modal" style={{ maxWidth: 600, maxHeight: "90vh" }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 600, maxHeight: "90vh", borderRadius: "var(--radius-lg)" }} onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setResults(null)}>✕</button>
-            <h3 style={{ marginBottom: 4 }}>{results.election.title}</h3>
-            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>Status: <strong>{results.election.status.toUpperCase()}</strong></p>
+            <div style={{ marginBottom: 16 }}>
+              <h3 style={{ marginBottom: 4, fontSize: 20 }}>{results.election.title}</h3>
+              <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>
+                Status: <strong style={{ color: results.election.status === "active" ? "var(--success)" : "var(--fg)" }}>
+                  {results.election.status.toUpperCase()}
+                </strong>
+              </p>
+            </div>
 
-            <div className="stats-row" style={{ marginBottom: 16, gridTemplateColumns: "1fr 1fr 1fr" }}>
-              <div className="stat-card" style={{ padding: 12 }}>
-                <div className="stat-value" style={{ fontSize: 22 }}>{results.summary.eligibleVoters}</div>
-                <div className="stat-label">Eligible</div>
+            {/* Summary cards */}
+            <div style={{
+              display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10,
+              marginBottom: 20,
+            }}>
+              <div style={{
+                padding: "14px 12px", borderRadius: "var(--radius-md)",
+                background: "var(--bg)", textAlign: "center",
+                border: "1px solid var(--border)",
+              }}>
+                <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2 }}>{results.summary.eligibleVoters}</div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Eligible</div>
               </div>
-              <div className="stat-card" style={{ padding: 12 }}>
-                <div className="stat-value" style={{ fontSize: 22, color: "var(--success)" }}>{results.summary.totalVoters}</div>
-                <div className="stat-label">Voted</div>
+              <div style={{
+                padding: "14px 12px", borderRadius: "var(--radius-md)",
+                background: "var(--green-light)", textAlign: "center",
+                border: "1px solid var(--green)",
+              }}>
+                <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2, color: "var(--success)" }}>{results.summary.totalVoters}</div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Voted</div>
               </div>
-              <div className="stat-card" style={{ padding: 12 }}>
-                <div className="stat-value" style={{ fontSize: 22 }}>{results.summary.turnoutPercentage}%</div>
-                <div className="stat-label">Turnout</div>
-                <div className="progress-bar" style={{ marginTop: 4 }}>
+              <div style={{
+                padding: "14px 12px", borderRadius: "var(--radius-md)",
+                background: "var(--bg)", textAlign: "center",
+                border: "1px solid var(--border)",
+              }}>
+                <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2 }}>{results.summary.turnoutPercentage}%</div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Turnout</div>
+                <div className="progress-bar" style={{ marginTop: 6, height: 4 }}>
                   <div className="fill" style={{ width: `${results.summary.turnoutPercentage}%` }} />
                 </div>
               </div>
             </div>
 
-            {results.positions.map((pos) => {
-              const sorted = [...pos.candidates].sort((a, b) => b.voteCount - a.voteCount);
-              return (
-                <div key={pos.id} style={{ marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>
-                  <h4 style={{ fontSize: 15, marginBottom: 8 }}>
-                    {pos.title} <span style={{ fontWeight: 400, fontSize: 12, color: "var(--muted)" }}>({pos.totalVotes} votes)</span>
-                  </h4>
-                  {sorted.length === 0 ? (
-                    <p style={{ fontSize: 13, color: "var(--muted)" }}>No candidates for this position.</p>
-                  ) : (
-                    sorted.map((c, i) => (
-                      <div key={c.id} style={{
-                        display: "flex", justifyContent: "space-between", alignItems: "center",
-                        padding: "8px 12px", marginBottom: 4,
-                        background: i === 0 && pos.totalVotes > 0 ? "var(--green-light)" : "transparent",
-                        borderRadius: "var(--radius-md)",
-                        border: i === 0 && pos.totalVotes > 0 ? "1px solid var(--green)" : "1px solid transparent",
-                      }}>
-                        <div style={{ fontSize: 14 }}>
-                          {c.firstName} {c.lastName}
-                          {i === 0 && results.election.status === "closed" && pos.totalVotes > 0 && (
-                            <span className="badge badge-active" style={{ marginLeft: 6 }}>Winner</span>
-                          )}
+            {/* Positions */}
+            <div style={{ maxHeight: "50vh", overflowY: "auto", paddingRight: 4 }}>
+              {results.positions.map((pos) => {
+                const sorted = [...pos.candidates].sort((a, b) => b.voteCount - a.voteCount);
+                return (
+                  <div key={pos.id} style={{
+                    marginBottom: 16, borderBottom: "1px solid var(--border)",
+                    paddingBottom: 14,
+                  }}>
+                    <div style={{
+                      display: "flex", justifyContent: "space-between",
+                      alignItems: "center", marginBottom: 10,
+                    }}>
+                      <h4 style={{ fontSize: 15, margin: 0 }}>{pos.title}</h4>
+                      <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                        {pos.totalVotes} vote{pos.totalVotes !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    {sorted.length === 0 ? (
+                      <p style={{ fontSize: 13, color: "var(--muted)", fontStyle: "italic" }}>
+                        No candidates for this position.
+                      </p>
+                    ) : (
+                      sorted.map((c, i) => (
+                        <div key={c.id} style={{
+                          display: "flex", justifyContent: "space-between", alignItems: "center",
+                          padding: "10px 14px", marginBottom: 6,
+                          background: i === 0 && pos.totalVotes > 0 ? "var(--green-light)" : "var(--bg)",
+                          borderRadius: "var(--radius-md)",
+                          border: i === 0 && pos.totalVotes > 0 ? "1px solid var(--green)" : "1px solid var(--border)",
+                          transition: "all 0.2s",
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, minWidth: 0, flex: 1 }}>
+                            {c.photoUrl ? (
+                              <img
+                                src={api.getCandidatePhotoUrl(c.photoUrl)}
+                                alt={`${c.firstName} ${c.lastName}`}
+                                style={{
+                                  width: 32, height: 32, borderRadius: "50%",
+                                  objectFit: "cover", flexShrink: 0,
+                                  border: "2px solid var(--border)",
+                                }}
+                              />
+                            ) : (
+                              <span style={{
+                                width: 32, height: 32, borderRadius: "50%",
+                                background: "var(--accent)", color: "#fff",
+                                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 12, fontWeight: 700, flexShrink: 0,
+                              }}>
+                                {c.firstName?.[0]}{c.lastName?.[0]}
+                              </span>
+                            )}
+                            <div style={{ minWidth: 0 }}>
+                              <span style={{ fontWeight: 600 }}>{c.firstName} {c.lastName}</span>
+                              {i === 0 && results.election.status === "closed" && pos.totalVotes > 0 && (
+                                <span className="badge badge-active" style={{ marginLeft: 6, fontSize: 10 }}>🏆 Winner</span>
+                              )}
+                              {i === 0 && results.election.status === "active" && pos.totalVotes > 0 && (
+                                <span className="badge badge-active" style={{ marginLeft: 6, fontSize: 10 }}>Leading</span>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
+                            <strong style={{ fontSize: 16 }}>{c.voteCount}</strong>
+                            <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 4 }}>
+                              ({c.percentage}%)
+                            </span>
+                          </div>
                         </div>
-                        <div style={{ textAlign: "right" }}>
-                          <strong>{c.voteCount}</strong>
-                          <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 4 }}>({c.percentage}%)</span>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              );
-            })}
+                      ))
+                    )}
+                  </div>
+                );
+              })}
+            </div>
 
-            <button className="btn btn-ghost" style={{ width: "100%" }} onClick={() => setResults(null)}>Close Results</button>
+            <button className="btn btn-ghost" style={{ width: "100%", marginTop: 8, borderRadius: "var(--radius-md)" }}
+              onClick={() => setResults(null)}>
+              Close Results
+            </button>
           </div>
         </div>
       )}
@@ -491,89 +674,150 @@ function ElectionCard({
     : {};
 
   return (
-    <div className="card" style={{ marginBottom: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
-        <div>
-          <strong style={{ fontSize: 16 }}>{election.title}</strong>
-          <br />
+    <div className="card" style={{
+      marginBottom: 16,
+      borderRadius: "var(--radius-md)",
+      border: `1px solid ${election.status === "active" ? "var(--green)" : "var(--border)"}`,
+      background: election.status === "active" ? "linear-gradient(135deg, var(--green-light) 0%, var(--surface) 100%)" : "var(--surface)",
+    }}>
+      {/* Header row */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+            <strong style={{ fontSize: 17, lineHeight: 1.3 }}>{election.title}</strong>
+            {election.status === "active" && (
+              <span className="status-badge status-active" style={{ fontSize: 11 }}>● Live</span>
+            )}
+          </div>
           <span style={{ fontSize: 13, color: "var(--muted)" }}>
-            {election.start_date && formatDateShort(election.start_date)}
+            🗓 {election.start_date && formatDateShort(election.start_date)}
             {election.end_date && ` — ${formatDateShort(election.end_date)}`}
           </span>
         </div>
-        <span className={`status-badge ${getStatusClass(election.status)}`} style={{ fontSize: 12 }}>
+        <span className={`status-badge ${getStatusClass(election.status)}`} style={{ fontSize: 12, flexShrink: 0 }}>
           ● {getStatusLabel(election.status)}
         </span>
       </div>
 
-      <p style={{ fontSize: 14, marginTop: 8 }}>{election.description || "No description provided."}</p>
+      {election.description && (
+        <p style={{ fontSize: 14, marginTop: 10, color: "var(--muted)", lineHeight: 1.5 }}>
+          {election.description}
+        </p>
+      )}
 
-      <div style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 13, color: "var(--muted)", flexWrap: "wrap" }}>
-        <span><strong>{election.positions_count || 0}</strong> positions</span>
+      {/* Stats row */}
+      <div style={{
+        display: "flex", gap: 20, marginTop: 12,
+        fontSize: 13, color: "var(--muted)", flexWrap: "wrap",
+      }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ fontWeight: 700, color: "var(--fg)", fontSize: 15 }}>{election.positions_count || 0}</span> positions
+        </span>
         {election.status !== "draft" && (
           <>
-            <span><strong>{election.total_votes || 0}</strong> votes cast</span>
-            <span><strong>{election.eligible_voters || 0}</strong> eligible voters</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ fontWeight: 700, color: "var(--fg)", fontSize: 15 }}>{election.total_votes || 0}</span> votes cast
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ fontWeight: 700, color: "var(--fg)", fontSize: 15 }}>{election.eligible_voters || 0}</span> eligible voters
+            </span>
           </>
         )}
       </div>
 
       {/* Positions & Candidates */}
       {(election.status === "upcoming" || election.status === "active") && (
-        <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-          <h4 style={{ fontSize: 14, marginBottom: 12, color: "var(--text)" }}>🏛️ Positions & Candidates</h4>
+        <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+          <h4 style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12, color: "var(--muted)" }}>
+            🏛️ Candidates by Position
+          </h4>
           {candidatesLoading ? (
-            <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", padding: 8 }}>
+            <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", padding: "12px 0" }}>
               <span className="loader-dot" />
             </p>
           ) : candidates && candidates.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {Object.entries(positions).map(([positionTitle, posCandidates]) => (
                 <div key={positionTitle} style={{
                   background: "var(--bg)", borderRadius: "var(--radius-md)",
-                  padding: "10px 14px", border: "1px solid var(--border)",
+                  padding: "12px 14px", border: "1px solid var(--border)",
                 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6, color: "var(--accent)" }}>
+                  <div style={{
+                    fontWeight: 600, fontSize: 14, marginBottom: 8,
+                    color: "var(--accent)", display: "flex", alignItems: "center", gap: 6,
+                  }}>
                     {positionTitle}
-                    <span style={{ fontWeight: 400, fontSize: 12, color: "var(--muted)", marginLeft: 8 }}>
+                    <span style={{
+                      fontWeight: 400, fontSize: 11, color: "var(--muted)",
+                      background: "var(--surface)", padding: "1px 8px",
+                      borderRadius: 8, border: "1px solid var(--border)",
+                    }}>
                       {posCandidates.length} candidate{posCandidates.length !== 1 ? "s" : ""}
                     </span>
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {posCandidates.map((c) => (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {posCandidates.map((c) => {
+                      const photoSrc = c.photo_url ? api.getCandidatePhotoUrl(c.photo_url) : null;
+                      return (
                       <span key={c.id} style={{
                         display: "inline-flex", alignItems: "center", gap: 6,
-                        padding: "4px 10px", borderRadius: 20,
+                        padding: "5px 12px 5px 5px", borderRadius: 20,
                         background: "var(--surface)", border: "1px solid var(--border)",
-                        fontSize: 13,
+                        fontSize: 13, transition: "box-shadow 0.2s",
                       }}>
-                        <span style={{
-                          width: 22, height: 22, borderRadius: "50%",
-                          background: "var(--accent)", color: "#fff",
-                          display: "inline-flex", alignItems: "center", justifyContent: "center",
-                          fontSize: 10, fontWeight: 700,
-                        }}>
-                          {c.first_name?.[0]}{c.last_name?.[0]}
-                        </span>
+                        {photoSrc ? (
+                          <img
+                            src={photoSrc}
+                            alt={`${c.first_name} ${c.last_name}`}
+                            style={{
+                              width: 24, height: 24, borderRadius: "50%",
+                              objectFit: "cover", flexShrink: 0,
+                            }}
+                          />
+                        ) : (
+                          <span style={{
+                            width: 24, height: 24, borderRadius: "50%",
+                            background: "var(--accent)", color: "#fff",
+                            display: "inline-flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 10, fontWeight: 700, flexShrink: 0,
+                          }}>
+                            {c.first_name?.[0]}{c.last_name?.[0]}
+                          </span>
+                        )}
                         {c.first_name} {c.last_name}
                       </span>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p style={{ fontSize: 13, color: "var(--muted)", fontStyle: "italic" }}>
-              No candidates have been qualified yet. Check back later.
-            </p>
+            <div style={{
+              textAlign: "center", padding: "16px",
+              background: "var(--bg)", borderRadius: "var(--radius-md)",
+            }}>
+              <p style={{ fontSize: 13, color: "var(--muted)", margin: 0, fontStyle: "italic" }}>
+                No candidates have been qualified yet. Check back later.
+              </p>
+            </div>
           )}
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-        <button className="btn btn-sm btn-outline" onClick={onViewDetails}>View Details</button>
+      {/* Action buttons */}
+      <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+        <button className="btn btn-sm btn-outline" onClick={onViewDetails}
+          style={{ borderRadius: "var(--radius-md)" }}
+        >
+          📄 View Details
+        </button>
         {(election.status === "active" || election.status === "closed") && (
-          <button className="btn btn-sm btn-outline" onClick={onViewResults}>View Results</button>
+          <button className="btn btn-sm btn-accent" onClick={onViewResults}
+            style={{ borderRadius: "var(--radius-md)" }}
+          >
+            📊 View Results
+          </button>
         )}
       </div>
     </div>
