@@ -675,8 +675,11 @@ export const api = {
   },
 
   // ─── Download uploaded form file ──────────────────────────────────────
-  getFormDownloadUrl: (filename: string) =>
-    `${API_BASE}/elections/forms/${encodeURIComponent(filename)}`,
+  getFormDownloadUrl: (filename: string) => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("gkac_token") : null;
+    const base = `${API_BASE}/elections/forms/${encodeURIComponent(filename)}`;
+    return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+  },
 
   // ─── Search members (for nominations) ─────────────────────────────────
   searchMembers: (query: string) =>

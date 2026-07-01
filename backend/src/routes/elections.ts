@@ -47,13 +47,20 @@ interface TokenPayload {
 }
 
 function authenticate(req: Request, res: Response): TokenPayload | null {
+  // Check Authorization header first, then fall back to ?token query param
+  let token: string | undefined;
   const header = req.headers.authorization;
-  if (!header || !header.startsWith("Bearer ")) {
+  if (header && header.startsWith("Bearer ")) {
+    token = header.slice(7);
+  } else if (typeof req.query.token === "string") {
+    token = req.query.token;
+  }
+  if (!token) {
     res.status(401).json({ error: "Authorization required." });
     return null;
   }
   try {
-    const payload = jwt.verify(header.slice(7), JWT_SECRET) as TokenPayload;
+    const payload = jwt.verify(token, JWT_SECRET) as TokenPayload;
     return payload;
   } catch {
     res.status(401).json({ error: "Invalid or expired token." });
