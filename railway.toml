@@ -10,10 +10,14 @@
   [services.backend.build]
     watchPatterns = ["backend/src/**", "backend/package.json"]
 
+  # With nixpacks, the runtime working directory is /app/backend/
+  # The code resolves uploads via path.join(__dirname, '..', 'uploads')
+  # where __dirname = /app/backend/dist, so it lands at /app/backend/uploads.
+  [services.backend.environment]
+    UPLOADS_DIR = "/app/backend/uploads"
+
   # Persistent volume for uploaded files (images, payment proofs, etc.)
-  # With nixpacks, the project root is /app and backend is a subdirectory.
-  # The code resolves uploads relative to dist/ -> backend/uploads/
-  # Override with UPLOADS_DIR env var if your setup differs.
+  # Must match UPLOADS_DIR above.
   [services.backend.volumes]
     "uploads" = "/app/backend/uploads"
 
