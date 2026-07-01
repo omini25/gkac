@@ -180,14 +180,14 @@ export default function PublicElectionsPage() {
             opacity: 0.5,
           }} />
           <div style={{ position: "relative", zIndex: 1 }}>
-            <div style={{
+            {/* <div style={{
               display: "inline-flex", alignItems: "center", gap: 8,
               background: "rgba(255,255,255,0.1)", backdropFilter: "blur(8px)",
               padding: "6px 16px", borderRadius: 20, fontSize: 13,
               marginBottom: 16, fontWeight: 600,
             }}>
               🗳️ 2026-2028 Election Season
-            </div>
+            </div> */}
             <h1 style={{ fontSize: "clamp(28px, 5vw, 42px)", margin: "0 0 12px", fontWeight: 800, letterSpacing: "-0.5px" }}>
               GKAC Elections
             </h1>
