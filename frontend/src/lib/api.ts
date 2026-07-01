@@ -321,6 +321,7 @@ export interface ElectionCandidate {
   membership_code: string;
   membership_category_name: string;
   position_title?: string;
+  photo_url?: string | null;
 }
 
 export interface ElectionResults {
@@ -353,6 +354,7 @@ export interface ElectionResults {
       membershipCategory: string;
       statement: string | null;
       sortOrder: number;
+      photoUrl?: string | null;
       voteCount: number;
       percentage: number;
     }[];
@@ -656,6 +658,9 @@ export const api = {
   getElectionEvents: () =>
     request<{ events: any[] }>("/elections/events"),
 
+  getMeetingEvents: () =>
+    request<{ events: any[] }>("/meetings/events"),
+
   // Candidates & Voting
   getCandidates: (electionId: string) =>
     request<{ candidates: ElectionCandidate[] }>(`/elections/${electionId}/candidates`),
@@ -697,6 +702,25 @@ export const api = {
 
   deletePoster: (id: string) =>
     request<{ message: string }>(`/elections/posters/${id}`, {
+      method: "DELETE",
+    }),
+
+  // ─── Candidate Photos ────────────────────────────────────────────────────
+  getCandidatePhotoUrl: (filename: string) =>
+    `${API_BASE}/elections/candidates/photo/${encodeURIComponent(filename)}`,
+
+  uploadCandidatePhoto: (candidateId: string, photoFile: File) => {
+    const formData = new FormData();
+    formData.append("photo", photoFile);
+    return request<{ photo_url: string; message: string }>(`/elections/candidates/${candidateId}/photo`, {
+      method: "POST",
+      headers: {},
+      body: formData,
+    });
+  },
+
+  deleteCandidatePhoto: (candidateId: string) =>
+    request<{ message: string }>(`/elections/candidates/${candidateId}/photo`, {
       method: "DELETE",
     }),
 
@@ -874,4 +898,77 @@ export const api = {
     request<{ message: string }>("/admin/profile/password", {
       method: "PUT", body: JSON.stringify({ currentPassword, newPassword }),
     }),
+
+  // ─── Virtual Meetings ───────────────────────────────────────────────────────
+  getMeetings: () =>
+    request<{ meetings: Meeting[] }>("/meetings"),
+
+  getMeeting: (id: string) =>
+    request<{ meeting: Meeting }>(`/meetings/${id}`),
+
+  createMeeting: (data: Record<string, unknown>) =>
+    request<{ meeting: Meeting }>("/meetings", {
+      method: "POST", body: JSON.stringify(data),
+    }),
+
+  updateMeeting: (id: string, data: Record<string, unknown>) =>
+    request<{ meeting: Meeting }>(`/meetings/${id}`, {
+      method: "PUT", body: JSON.stringify(data),
+    }),
+
+  updateMeetingStatus: (id: string, status: string) =>
+    request<{ meeting: Meeting }>(`/meetings/${id}/status`, {
+      method: "PUT", body: JSON.stringify({ status }),
+    }),
+
+  deleteMeeting: (id: string) =>
+    request<{ message: string }>(`/meetings/${id}`, {
+      method: "DELETE",
+    }),
+
+  attendMeeting: (id: string, data?: { name?: string; email?: string }) =>
+    request<{ message: string; meeting: { title: string; platform: string; meeting_link: string; meeting_id: string; passcode: string; dial_in_numbers: string } }>(`/meetings/${id}/attend`, {
+      method: "POST", body: JSON.stringify(data || {}),
+    }),
+
+  getMeetingAttendees: (id: string) =>
+    request<{ attendees: MeetingAttendee[] }>(`/meetings/${id}/attendees`),
 };
+
+// ─── Meeting types ─────────────────────────────────────────────────────────
+
+export interface Meeting {
+  id: string;
+  title: string;
+  description: string | null;
+  meeting_date: string | null;
+  meeting_time: string | null;
+  timezone: string;
+  platform: "zoom" | "google_meet" | "microsoft_teams" | "other";
+  meeting_link: string | null;
+  meeting_id: string | null;
+  passcode: string | null;
+  dial_in_numbers: string | null;
+  status: "draft" | "upcoming" | "active" | "completed" | "cancelled";
+  access_type: "members_only" | "anyone_with_link";
+  max_attendees: number | null;
+  recording_link: string | null;
+  created_by: string | null;
+  creator_first_name?: string;
+  creator_last_name?: string;
+  attendee_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MeetingAttendee {
+  id: string;
+  meeting_id: string;
+  user_id: string | null;
+  name: string | null;
+  email: string | null;
+  joined_at: string;
+  first_name?: string;
+  last_name?: string;
+  membership_code?: string;
+}

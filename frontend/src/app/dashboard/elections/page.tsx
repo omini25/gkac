@@ -28,6 +28,7 @@ export default function ElectionsPage() {
   const [declareStatement, setDeclareStatement] = useState("");
   const [declareFormFile, setDeclareFormFile] = useState<File | null>(null);
   const [declareProofFile, setDeclareProofFile] = useState<File | null>(null);
+  const [declarePhotoFile, setDeclarePhotoFile] = useState<File | null>(null);
   const [declaring, setDeclaring] = useState(false);
 
   // Nomination modal (nominate another member with form upload + payment proof)
@@ -46,6 +47,9 @@ export default function ElectionsPage() {
 
   // Results modal
   const [results, setResults] = useState<ElectionResults | null>(null);
+
+  // Candidate photo upload
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const showToast = useCallback((msg: string, type: string) => {
     setToast({ msg, type });
@@ -342,11 +346,53 @@ export default function ElectionsPage() {
                   <div style={{ width: "100%", fontSize: 13, marginBottom: 4 }}>
                     <strong>My Declarations:</strong>
                     <ul style={{ margin: "4px 0 0", paddingLeft: 20 }}>
-                      {myDeclarations.map((d) => (
-                        <li key={d.id}>
+                      {myDeclarations.map((d) => {
+                        // Find candidate record for approved declarations
+                        const matchingCandidate = candidates.find(
+                          (c) => c.position_id === d.position_id && c.user_id === d.user_id
+                        );
+                        return (
+                        <li key={d.id} style={{ marginBottom: 4 }}>
                           {d.position_title || ""} — <span className={d.status === "approved" ? "badge badge-active" : d.status === "rejected" ? "badge badge-expired" : "badge badge-pending"}>{d.status}</span>
+                          {d.status === "approved" && matchingCandidate && (
+                            <span style={{ marginLeft: 8, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                              {matchingCandidate.photo_url ? (
+                                <img
+                                  src={api.getCandidatePhotoUrl(matchingCandidate.photo_url)}
+                                  alt="Candidate"
+                                  style={{
+                                    width: 28, height: 28, borderRadius: "50%",
+                                    objectFit: "cover", border: "2px solid var(--border)",
+                                    verticalAlign: "middle",
+                                  }}
+                                />
+                              ) : null}
+                              <label style={{ color: "var(--accent)", cursor: "pointer", fontSize: 12 }}>
+                                {uploadingPhoto ? "⏳" : matchingCandidate.photo_url ? "📸 Change Photo" : "📸 Upload Photo"}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  style={{ display: "none" }}
+                                  disabled={uploadingPhoto}
+                                  onChange={async (e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                      setUploadingPhoto(true);
+                                      const res = await api.uploadCandidatePhoto(matchingCandidate.id, e.target.files[0]);
+                                      if (res.data) {
+                                        showToast("Photo uploaded! It will appear on the ballot.", "success");
+                                        loadVoteState(el.id);
+                                      } else {
+                                        showToast(res.error || "Failed to upload photo", "error");
+                                      }
+                                      setUploadingPhoto(false);
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </span>
+                          )}
                         </li>
-                      ))}
+                      );})}
                     </ul>
                   </div>
                 )}
@@ -437,43 +483,60 @@ export default function ElectionsPage() {
                   {posCandidates.length === 0 ? (
                     <p style={{ fontSize: 13, color: "var(--muted)" }}>No candidates for this position.</p>
                   ) : (
-                    posCandidates.map((c) => (
-                      <label
-                        key={c.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          padding: 10,
-                          border: `1px solid ${selections[pos.id] === c.id ? "var(--green)" : "var(--border)"}`,
-                          borderRadius: "var(--radius-md)",
-                          marginBottom: 6,
-                          cursor: alreadyVoted ? "default" : "pointer",
-                          opacity: alreadyVoted ? 0.6 : 1,
-                          background: selections[pos.id] === c.id ? "var(--green-light)" : "transparent",
-                        }}
-                      >
-                        <input
-                          type="radio"
-                          name={`pos-${pos.id}`}
-                          value={c.id}
-                          checked={selections[pos.id] === c.id}
-                          onChange={() => setSelections((p) => ({ ...p, [pos.id]: c.id }))}
-                          disabled={alreadyVoted}
-                          style={{ accentColor: "var(--green)" }}
-                        />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <strong>{c.first_name} {c.last_name}</strong>
-                          <br />
-                          <span style={{ fontSize: 12, color: "var(--muted)" }}>{c.membership_category_name} · {c.membership_code}</span>
-                        </div>
-                        {c.statement && (
-                          <span style={{ fontSize: 12, color: "var(--muted)", maxWidth: "35%", textAlign: "right", flexShrink: 0 }}>
-                            "{c.statement.substring(0, 60)}{c.statement.length > 60 ? "…" : ""}"
-                          </span>
-                        )}
-                      </label>
-                    ))
+                    posCandidates.map((c) => {
+                      const photoUrl = c.photo_url ? api.getCandidatePhotoUrl(c.photo_url) : null;
+                      return (
+                        <label
+                          key={c.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            padding: 10,
+                            border: `1px solid ${selections[pos.id] === c.id ? "var(--green)" : "var(--border)"}`,
+                            borderRadius: "var(--radius-md)",
+                            marginBottom: 6,
+                            cursor: alreadyVoted ? "default" : "pointer",
+                            opacity: alreadyVoted ? 0.6 : 1,
+                            background: selections[pos.id] === c.id ? "var(--green-light)" : "transparent",
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name={`pos-${pos.id}`}
+                            value={c.id}
+                            checked={selections[pos.id] === c.id}
+                            onChange={() => setSelections((p) => ({ ...p, [pos.id]: c.id }))}
+                            disabled={alreadyVoted}
+                            style={{ accentColor: "var(--green)" }}
+                          />
+                          {photoUrl && (
+                            <img
+                              src={photoUrl}
+                              alt={`${c.first_name} ${c.last_name}`}
+                              style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: "50%",
+                                objectFit: "cover",
+                                flexShrink: 0,
+                                border: "2px solid var(--border)",
+                              }}
+                            />
+                          )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <strong>{c.first_name} {c.last_name}</strong>
+                            <br />
+                            <span style={{ fontSize: 12, color: "var(--muted)" }}>{c.membership_category_name} · {c.membership_code}</span>
+                          </div>
+                          {c.statement && (
+                            <span style={{ fontSize: 12, color: "var(--muted)", maxWidth: "35%", textAlign: "right", flexShrink: 0 }}>
+                              "{c.statement.substring(0, 60)}{c.statement.length > 60 ? "…" : ""}"
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })
                   )}
                 </div>
               );
@@ -998,8 +1061,22 @@ export default function ElectionsPage() {
                       borderRadius: "var(--radius-md)",
                       border: i === 0 && pos.totalVotes > 0 ? "1px solid var(--green)" : "1px solid transparent",
                     }}>
-                      <div style={{ fontSize: 14, wordBreak: "break-word", flex: 1, minWidth: 0, paddingRight: 8 }}>
-                        {c.firstName} {c.lastName}
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, wordBreak: "break-word", flex: 1, minWidth: 0, paddingRight: 8 }}>
+                        {c.photoUrl && (
+                          <img
+                            src={api.getCandidatePhotoUrl(c.photoUrl)}
+                            alt={`${c.firstName} ${c.lastName}`}
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: "50%",
+                              objectFit: "cover",
+                              flexShrink: 0,
+                              border: "2px solid var(--border)",
+                            }}
+                          />
+                        )}
+                        <span>{c.firstName} {c.lastName}</span>
                         {i === 0 && results.election.status === "closed" && pos.totalVotes > 0 && (
                           <span className="badge badge-active" style={{ marginLeft: 6 }}>Winner</span>
                         )}

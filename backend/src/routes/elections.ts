@@ -702,11 +702,13 @@ electionsRouter.get("/elections/:id/declarations", async (req: Request, res: Res
       `SELECT d.*, ep.title AS position_title,
               u.first_name, u.last_name, u.email, u.membership_code, u.membership_category_name,
               nu.first_name AS nominee_first_name, nu.last_name AS nominee_last_name,
-              nu.email AS nominee_email, nu.membership_code AS nominee_membership_code
+              nu.email AS nominee_email, nu.membership_code AS nominee_membership_code,
+              c.id AS candidate_id, c.photo_url AS candidate_photo_url
        FROM election_declarations d
        JOIN election_positions ep ON d.position_id = ep.id
        JOIN users u ON d.user_id = u.id
        LEFT JOIN users nu ON d.nominee_user_id = nu.id
+       LEFT JOIN election_candidates c ON c.declaration_id = d.id
        WHERE d.election_id = $1
        ORDER BY d.status, ep.sort_order, d.created_at`,
       [req.params.id]
@@ -917,7 +919,10 @@ electionsRouter.delete("/elections/declarations/:id", async (req: Request, res: 
 });
 
 // ─── POST /api/elections/:id/declare-as-admin (admin) ────────────────────
-electionsRouter.post("/elections/:id/declare-as-admin", uploadForm.single("formFile"), async (req: Request, res: Response) => {
+electionsRouter.post("/elections/:id/declare-as-admin", uploadForm.fields([
+  { name: "formFile", maxCount: 1 },
+  { name: "photoFile", maxCount: 1 },
+]), async (req: Request, res: Response) => {
   const auth = authenticate(req, res);
   if (!auth) return;
   if (!(await requireAdmin(auth, res))) return;
@@ -979,8 +984,20 @@ electionsRouter.post("/elections/:id/declare-as-admin", uploadForm.single("formF
       });
     }
 
-    // Handle file upload
-    const formFilePath = req.file ? req.file.filename : null;
+    // Handle file uploads
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    const formFilePath = files?.formFile?.[0] ? files.formFile[0].filename : null;
+
+    // Handle photo upload - save to candidate photos directory
+    let photoFilename: string | null = null;
+    const photoFile = files?.photoFile?.[0];
+    if (photoFile) {
+      // Save the photo to the candidate photos directory
+      const ext = path.extname(photoFile.originalname);
+      photoFilename = crypto.randomBytes(16).toString("hex") + ext;
+      const photoPath = path.join(CANDIDATE_PHOTOS_DIR, photoFilename);
+      fs.writeFileSync(photoPath, photoFile.buffer || fs.readFileSync(photoFile.path));
+    }
 
     // Auto-approve when admin declares on behalf of a member
     const result = await db.query(
@@ -992,16 +1009,16 @@ electionsRouter.post("/elections/:id/declare-as-admin", uploadForm.single("formF
 
     const declaration = result.rows[0];
 
-    // Auto-add as candidate
+    // Auto-add as candidate (with photo if provided)
     const maxSort = await db.query(
       "SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort FROM election_candidates WHERE position_id = $1",
       [positionId]
     );
 
     await db.query(
-      `INSERT INTO election_candidates (election_id, position_id, user_id, declaration_id, statement, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [id, positionId, userId, declaration.id, declaration.statement, maxSort.rows[0].next_sort]
+      `INSERT INTO election_candidates (election_id, position_id, user_id, declaration_id, statement, sort_order, photo_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [id, positionId, userId, declaration.id, declaration.statement, maxSort.rows[0].next_sort, photoFilename]
     );
 
     return res.status(201).json({ declaration, message: "Declaration created and approved." });
@@ -1020,7 +1037,7 @@ electionsRouter.get("/elections/:id/candidates", async (req: Request, res: Respo
   try {
     const db = getDbPool();
     const result = await db.query(
-      `SELECT c.id, c.position_id, c.user_id, c.statement, c.sort_order,
+      `SELECT c.id, c.position_id, c.user_id, c.statement, c.sort_order, c.photo_url,
               u.first_name, u.last_name, u.membership_code, u.membership_category_name,
               ep.title AS position_title
        FROM election_candidates c
@@ -1316,7 +1333,7 @@ electionsRouter.get("/elections/:id/results", async (_req: Request, res: Respons
     const positions = [];
     for (const pos of positionsResult.rows) {
       const candidatesResult = await db.query(
-        `SELECT c.id, c.user_id, c.statement, c.sort_order,
+        `SELECT c.id, c.user_id, c.statement, c.sort_order, c.photo_url,
                 u.first_name, u.last_name, u.membership_code, u.membership_category_name,
                 (SELECT COUNT(*) FROM election_votes WHERE candidate_id = c.id AND position_id = c.position_id) AS vote_count
          FROM election_candidates c
@@ -1342,6 +1359,7 @@ electionsRouter.get("/elections/:id/results", async (_req: Request, res: Respons
         membershipCategory: c.membership_category_name,
         statement: c.statement,
         sortOrder: c.sort_order,
+        photoUrl: c.photo_url,
         voteCount: parseInt(c.vote_count, 10),
         percentage: positionTotalVotes > 0
           ? Math.round((parseInt(c.vote_count, 10) / positionTotalVotes) * 100 * 10) / 10
@@ -1517,6 +1535,172 @@ electionsRouter.get("/elections/posters/file/:filename", async (req: Request, re
   } catch (err) {
     console.error("Error serving poster file:", err);
     return res.status(500).json({ error: "Failed to serve file." });
+  }
+});
+
+// ============================================================================
+// CANDIDATE PHOTOS (uploaded by admin or candidate)
+// ============================================================================
+
+// Upload directory for candidate photos
+const CANDIDATE_PHOTOS_DIR = path.join(__dirname, "..", "..", "uploads", "election-candidate-photos");
+if (!fs.existsSync(CANDIDATE_PHOTOS_DIR)) {
+  fs.mkdirSync(CANDIDATE_PHOTOS_DIR, { recursive: true });
+}
+
+const candidatePhotoStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, CANDIDATE_PHOTOS_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const name = crypto.randomBytes(16).toString("hex") + ext;
+    cb(null, name);
+  },
+});
+
+const uploadCandidatePhoto = multer({
+  storage: candidatePhotoStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    cb(new Error("Only image files are allowed (JPEG, PNG, GIF, WebP)."));
+  },
+});
+
+// ─── POST /api/elections/candidates/:id/photo ──────────────────────────
+// Upload or update a candidate's photo. Accessible by admin or the candidate themselves.
+electionsRouter.post("/elections/candidates/:id/photo", uploadCandidatePhoto.single("photo"), async (req: Request, res: Response) => {
+  const auth = authenticate(req, res);
+  if (!auth) return;
+
+  try {
+    const db = getDbPool();
+    const { id } = req.params;
+
+    // Get the candidate record
+    const candidateResult = await db.query(
+      "SELECT * FROM election_candidates WHERE id = $1",
+      [id]
+    );
+    if (candidateResult.rows.length === 0) {
+      return res.status(404).json({ error: "Candidate not found." });
+    }
+
+    const candidate = candidateResult.rows[0];
+
+    // Check permission: admin or the candidate themselves
+    const adminCheck = await db.query(
+      "SELECT is_admin FROM users WHERE id = $1", [auth.userId]
+    );
+    const isAdminUser = adminCheck.rows.length > 0 && adminCheck.rows[0].is_admin;
+
+    if (candidate.user_id !== auth.userId && !isAdminUser) {
+      return res.status(403).json({ error: "Access denied. Only the candidate or an admin can upload a photo." });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No photo file uploaded." });
+    }
+
+    // Delete old photo from disk if exists
+    if (candidate.photo_url) {
+      const oldFilePath = path.join(CANDIDATE_PHOTOS_DIR, candidate.photo_url);
+      if (fs.existsSync(oldFilePath)) {
+        fs.unlinkSync(oldFilePath);
+      }
+    }
+
+    const filename = req.file.filename;
+
+    // Update the candidate record with the new photo filename
+    await db.query(
+      "UPDATE election_candidates SET photo_url = $1 WHERE id = $2",
+      [filename, id]
+    );
+
+    return res.json({ photo_url: filename, message: "Photo uploaded successfully." });
+  } catch (err) {
+    console.error("Error uploading candidate photo:", err);
+    return res.status(500).json({ error: "Failed to upload photo." });
+  }
+});
+
+// ─── GET /api/elections/candidates/photo/:filename — Serve candidate photo ─
+electionsRouter.get("/elections/candidates/photo/:filename", async (req: Request, res: Response) => {
+  try {
+    const { filename } = req.params;
+    const filePath = path.join(CANDIDATE_PHOTOS_DIR, filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "File not found." });
+    }
+
+    // Determine content type
+    const ext = path.extname(filename).toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".gif": "image/gif",
+      ".webp": "image/webp",
+    };
+    const contentType = mimeTypes[ext] || "application/octet-stream";
+
+    res.setHeader("Content-Type", contentType);
+    res.sendFile(filePath);
+  } catch (err) {
+    console.error("Error serving candidate photo:", err);
+    return res.status(500).json({ error: "Failed to serve photo." });
+  }
+});
+
+// ─── DELETE /api/elections/candidates/:id/photo ─────────────────────────
+// Remove a candidate's photo. Accessible by admin or the candidate themselves.
+electionsRouter.delete("/elections/candidates/:id/photo", async (req: Request, res: Response) => {
+  const auth = authenticate(req, res);
+  if (!auth) return;
+
+  try {
+    const db = getDbPool();
+    const { id } = req.params;
+
+    const candidateResult = await db.query(
+      "SELECT * FROM election_candidates WHERE id = $1",
+      [id]
+    );
+    if (candidateResult.rows.length === 0) {
+      return res.status(404).json({ error: "Candidate not found." });
+    }
+
+    const candidate = candidateResult.rows[0];
+
+    // Check permission: admin or the candidate themselves
+    const adminCheck = await db.query(
+      "SELECT is_admin FROM users WHERE id = $1", [auth.userId]
+    );
+    const isAdminUser = adminCheck.rows.length > 0 && adminCheck.rows[0].is_admin;
+
+    if (candidate.user_id !== auth.userId && !isAdminUser) {
+      return res.status(403).json({ error: "Access denied." });
+    }
+
+    if (!candidate.photo_url) {
+      return res.status(404).json({ error: "No photo to delete." });
+    }
+
+    // Delete the file from disk
+    const filePath = path.join(CANDIDATE_PHOTOS_DIR, candidate.photo_url);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    // Clear the photo_url in the database
+    await db.query("UPDATE election_candidates SET photo_url = NULL WHERE id = $1", [id]);
+
+    return res.json({ message: "Photo deleted successfully." });
+  } catch (err) {
+    console.error("Error deleting candidate photo:", err);
+    return res.status(500).json({ error: "Failed to delete photo." });
   }
 });
 

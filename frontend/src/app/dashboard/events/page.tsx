@@ -12,10 +12,12 @@ export default function EventsPage() {
     Promise.all([
       api.getContent<EventItem>("events"),
       api.getElectionEvents(),
-    ]).then(([eventsRes, electionRes]) => {
+      api.getMeetingEvents(),
+    ]).then(([eventsRes, electionRes, meetingRes]) => {
       const merged = [
         ...(eventsRes.data?.items || []),
         ...(electionRes.data?.events || []),
+        ...(meetingRes.data?.events || []),
       ];
       merged.sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
       setEvents(merged);

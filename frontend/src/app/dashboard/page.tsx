@@ -43,10 +43,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const [newsRes, eventsRes, electionEventsRes, electionsRes, paymentsRes] = await Promise.all([
+      const [newsRes, eventsRes, electionEventsRes, meetingEventsRes, electionsRes, paymentsRes] = await Promise.all([
         api.getContent<NewsItem>("news"),
         api.getContent<EventItem>("events"),
         api.getElectionEvents(),
+        api.getMeetingEvents(),
         api.getElections(),
         api.getPaymentHistory(),
       ]);
@@ -54,6 +55,7 @@ export default function DashboardPage() {
       const allEvents = [
         ...(eventsRes.data?.items || []),
         ...(electionEventsRes.data?.events || []),
+        ...(meetingEventsRes.data?.events || []),
       ];
       const upcoming = allEvents
         .filter((e: any) => new Date(e.event_date) >= new Date())

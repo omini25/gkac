@@ -37,6 +37,7 @@ const NAV_SECTIONS = [
     heading: "Governance",
     items: [
       { href: "/admin/elections", label: "Elections & Voting", icon: "🗳" },
+      { href: "/admin/meetings", label: "Virtual Meetings", icon: "🎥" },
       { href: "/admin/reports", label: "Reports & Analytics", icon: "📈" },
     ],
   },
@@ -56,6 +57,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/content": "Content Management",
   "/admin/resources": "Resource Library",
   "/admin/elections": "Elections & Voting",
+  "/admin/meetings": "Virtual Meetings",
   "/admin/reports": "Reports & Analytics",
   "/admin/profile": "My Profile",
   "/admin/settings": "System Settings",

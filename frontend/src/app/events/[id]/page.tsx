@@ -32,6 +32,24 @@ export default function EventDetailPage() {
       return;
     }
 
+    // Meeting events have a prefix "meeting-" — fetch them from the meetings endpoint
+    if (id.startsWith("meeting-")) {
+      api.getMeetingEvents().then((res) => {
+        if (res.data) {
+          const found = res.data.events.find((e: any) => e.id === id);
+          if (found) {
+            setEvent(found as EventItem);
+          } else {
+            setError("Not found.");
+          }
+        } else {
+          setError("Not found.");
+        }
+        setLoading(false);
+      });
+      return;
+    }
+
     api.getContentItem<EventItem>("events", id).then((res) => {
       if (res.error) {
         setError(res.error);
@@ -180,6 +198,23 @@ export default function EventDetailPage() {
             }}
           >
             <strong>Capacity:</strong> {event.max_attendees} attendees max
+          </div>
+        )}
+
+        {(event as any).source === "meeting" && (event as any).meeting_id && (
+          <div style={{ marginTop: 32 }}>
+            <Link
+              href={`/meetings/join/${(event as any).meeting_id}`}
+              className="btn btn-accent btn-lg"
+              style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8 }}
+            >
+              🎥 Join Virtual Meeting
+            </Link>
+            {(event as any).meeting_platform && (
+              <span style={{ marginLeft: 12, fontSize: 14, color: "var(--muted)" }}>
+                via {(event as any).meeting_platform === "google_meet" ? "Google Meet" : (event as any).meeting_platform === "microsoft_teams" ? "Microsoft Teams" : (event as any).meeting_platform === "zoom" ? "Zoom" : (event as any).meeting_platform}
+              </span>
+            )}
           </div>
         )}
 

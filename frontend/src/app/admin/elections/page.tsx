@@ -34,6 +34,9 @@ export default function AdminElectionsPage() {
   const [declarations, setDeclarations] = useState<ElectionDeclaration[]>([]);
   const [declLoading, setDeclLoading] = useState(false);
 
+  // Photo upload state for declarations table
+  const [uploadingDeclPhoto, setUploadingDeclPhoto] = useState<string | null>(null);
+
   // Add Declaration modal (with form type and file upload)
   const [showAddDecl, setShowAddDecl] = useState(false);
   const [addDeclElectionId, setAddDeclElectionId] = useState<string | null>(null);
@@ -47,6 +50,7 @@ export default function AdminElectionsPage() {
   const [addDeclPositions, setAddDeclPositions] = useState<ElectionPosition[]>([]);
   const [addDeclFormType, setAddDeclFormType] = useState<"declaration" | "nomination">("declaration");
   const [addDeclFormFile, setAddDeclFormFile] = useState<File | null>(null);
+  const [addDeclPhotoFile, setAddDeclPhotoFile] = useState<File | null>(null);
   // Nominee fields for nomination forms
   const [addDeclNomineeSearch, setAddDeclNomineeSearch] = useState("");
   const [addDeclNomineeMembers, setAddDeclNomineeMembers] = useState<any[]>([]);
@@ -353,6 +357,7 @@ export default function AdminElectionsPage() {
     setAddDeclMembers([]);
     setAddDeclFormType("declaration");
     setAddDeclFormFile(null);
+    setAddDeclPhotoFile(null);
     setAddDeclNomineeSearch("");
     setAddDeclNomineeMembers([]);
     setAddDeclNomineeUserId("");
@@ -434,6 +439,9 @@ export default function AdminElectionsPage() {
     }
     if (addDeclFormFile) {
       formData.append("formFile", addDeclFormFile);
+    }
+    if (addDeclPhotoFile) {
+      formData.append("photoFile", addDeclPhotoFile);
     }
 
     const token = typeof window !== "undefined" ? localStorage.getItem("gkac_token") : null;
@@ -724,6 +732,49 @@ export default function AdminElectionsPage() {
                             </>
                           )}
                           {d.status !== "pending" && <span style={{ fontSize: 12, color: "var(--muted)" }}>Reviewed</span>}
+                          {(d as any).candidate_id && d.status === "approved" && (
+                            <>
+                              <label className="btn btn-outline btn-xs" style={{ cursor: "pointer", fontSize: 11 }}>
+                                {uploadingDeclPhoto === (d as any).candidate_id ? "⏳" : (d as any).candidate_photo_url ? "📸 Change" : "📸 Photo"}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  style={{ display: "none" }}
+                                  disabled={uploadingDeclPhoto === (d as any).candidate_id}
+                                  onChange={async (e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                      setUploadingDeclPhoto((d as any).candidate_id);
+                                      const res = await api.uploadCandidatePhoto((d as any).candidate_id, e.target.files[0]);
+                                      if (res.data) {
+                                        showToast("Photo uploaded!", "success");
+                                        if (showDeclarations) openDeclarations(showDeclarations);
+                                      } else {
+                                        showToast(res.error || "Failed", "error");
+                                      }
+                                      setUploadingDeclPhoto(null);
+                                    }
+                                  }}
+                                />
+                              </label>
+                              {(d as any).candidate_photo_url && (
+                                <button
+                                  className="btn btn-danger btn-xs"
+                                  onClick={async () => {
+                                    const res = await api.deleteCandidatePhoto((d as any).candidate_id);
+                                    if (res.data) {
+                                      showToast("Photo removed", "success");
+                                      if (showDeclarations) openDeclarations(showDeclarations);
+                                    } else {
+                                      showToast(res.error || "Failed", "error");
+                                    }
+                                  }}
+                                  title="Remove photo"
+                                >
+                                  🗑 Photo
+                                </button>
+                              )}
+                            </>
+                          )}
                           {canEdit && (
                             <button className="btn btn-danger btn-xs" onClick={() => deleteDeclaration(d.id)} title="Delete declaration">
                               🗑
@@ -1387,6 +1438,48 @@ export default function AdminElectionsPage() {
               </div>
             </div>
 
+            {/* Photo Upload */}
+            <div className="form-group">
+              <label>Candidate Photo (optional)</label>
+              <div style={{
+                border: "2px dashed var(--border-strong)",
+                borderRadius: "var(--radius-md)",
+                padding: 12,
+                textAlign: "center",
+                background: addDeclPhotoFile ? "var(--green-light)" : "var(--bg)",
+                cursor: "pointer",
+              }}
+                onClick={() => document.getElementById("admin-decl-photo-input")?.click()}
+              >
+                {addDeclPhotoFile ? (
+                  <div>
+                    <span style={{ fontSize: 20 }}>✅</span>
+                    <p style={{ margin: "4px 0", fontSize: 13 }}><strong>{addDeclPhotoFile.name}</strong></p>
+                    <button
+                      className="btn btn-ghost btn-xs"
+                      onClick={(e) => { e.stopPropagation(); setAddDeclPhotoFile(null); }}
+                    >Remove</button>
+                  </div>
+                ) : (
+                  <div>
+                    <span style={{ fontSize: 24 }}>📸</span>
+                    <p style={{ margin: "4px 0", fontSize: 12, color: "var(--muted)" }}>Click to upload candidate photo (optional)</p>
+                  </div>
+                )}
+                <input
+                  id="admin-decl-photo-input"
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setAddDeclPhotoFile(e.target.files[0]);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 className="btn btn-accent"
@@ -1411,6 +1504,28 @@ export default function AdminElectionsPage() {
 
 // ─── Results View Component ─────────────────────────────────────────────
 function ResultsView({ results, onClose }: { results: ElectionResults; onClose: () => void }) {
+  // ─── Photo upload state ──────────────────────────────────────────────
+  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [photoToast, setPhotoToast] = useState("");
+
+  async function handleCandidatePhotoUpload(candidateId: string, file: File) {
+    setUploadingFor(candidateId);
+    try {
+      const res = await api.uploadCandidatePhoto(candidateId, file);
+      if (res.data) {
+        setPhotoToast("Photo uploaded successfully!");
+        // Refresh results to show the new photo
+        window.location.reload();
+      } else {
+        setPhotoToast(res.error || "Failed to upload photo");
+      }
+    } catch {
+      setPhotoToast("Failed to upload photo");
+    }
+    setUploadingFor(null);
+    setTimeout(() => setPhotoToast(""), 3000);
+  }
+
   return (
     <div className="card">
       <div className="card-header">
@@ -1481,16 +1596,32 @@ function ResultsView({ results, onClose }: { results: ElectionResults; onClose: 
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                        <div>
-                          <strong>{c.firstName} {c.lastName}</strong>
-                          {isWinner && results.election.status === "closed" && (
-                            <span className="badge badge-active" style={{ marginLeft: 8 }}>Winner</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          {c.photoUrl && (
+                            <img
+                              src={api.getCandidatePhotoUrl(c.photoUrl)}
+                              alt={`${c.firstName} ${c.lastName}`}
+                              style={{
+                                width: 44,
+                                height: 44,
+                                borderRadius: "50%",
+                                objectFit: "cover",
+                                flexShrink: 0,
+                                border: "2px solid var(--border)",
+                              }}
+                            />
                           )}
-                          {isWinner && results.election.status === "active" && (
-                            <span className="badge badge-active" style={{ marginLeft: 8 }}>Leading</span>
-                          )}
-                          <br />
-                          <span style={{ fontSize: 12, color: "var(--muted)" }}>{c.membershipCategory} · {c.membershipCode}</span>
+                          <div>
+                            <strong>{c.firstName} {c.lastName}</strong>
+                            {isWinner && results.election.status === "closed" && (
+                              <span className="badge badge-active" style={{ marginLeft: 8 }}>Winner</span>
+                            )}
+                            {isWinner && results.election.status === "active" && (
+                              <span className="badge badge-active" style={{ marginLeft: 8 }}>Leading</span>
+                            )}
+                            <br />
+                            <span style={{ fontSize: 12, color: "var(--muted)" }}>{c.membershipCategory} · {c.membershipCode}</span>
+                          </div>
                         </div>
                         <div style={{ textAlign: "right" }}>
                           <div style={{ fontSize: 22, fontWeight: 700, color: "var(--green-dark)", lineHeight: 1 }}>{c.voteCount}</div>
@@ -1500,6 +1631,40 @@ function ResultsView({ results, onClose }: { results: ElectionResults; onClose: 
                       <div className="progress-bar">
                         <div className="fill" style={{ width: `${c.percentage}%` }} />
                       </div>
+                      <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                        <label style={{ fontSize: 12, color: "var(--accent)", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                          {uploadingFor === c.id ? (
+                            <span style={{ color: "var(--muted)" }}>⏳ Uploading…</span>
+                          ) : (
+                            <>
+                              📸 <span>{c.photoUrl ? "Change Photo" : "Add Photo"}</span>
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            style={{ display: "none" }}
+                            disabled={uploadingFor === c.id}
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                handleCandidatePhotoUpload(c.id, e.target.files[0]);
+                              }
+                            }}
+                          />
+                        </label>
+                        {c.photoUrl && (
+                          <button
+                            className="btn btn-ghost btn-xs"
+                            style={{ fontSize: 11 }}
+                            onClick={async () => {
+                              const res = await api.deleteCandidatePhoto(c.id);
+                              if (res.data) window.location.reload();
+                            }}
+                          >
+                            Remove Photo
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -1508,6 +1673,17 @@ function ResultsView({ results, onClose }: { results: ElectionResults; onClose: 
           </div>
         );
       })}
+
+      {photoToast && (
+        <div style={{
+          position: "fixed", bottom: 20, right: 20,
+          padding: "12px 20px", borderRadius: "var(--radius-md)",
+          background: "var(--green-dark)", color: "white", fontSize: 14,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 9999,
+        }}>
+          {photoToast}
+        </div>
+      )}
     </div>
   );
 }

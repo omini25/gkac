@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/billing", label: "Billing", icon: "💰" },
   { href: "/dashboard/resources", label: "Resources", icon: "📁" },
   { href: "/dashboard/elections", label: "Elections & Voting", icon: "🗳️" },
+  { href: "/dashboard/meetings", label: "Virtual Meetings", icon: "🎥" },
   { href: "/dashboard/events", label: "Events", icon: "📅" },
 ];
 
@@ -23,6 +24,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/dashboard/billing": "Billing & Payments",
   "/dashboard/resources": "Resources & Documents",
   "/dashboard/elections": "Elections & Voting",
+  "/dashboard/meetings": "Virtual Meetings",
   "/dashboard/events": "Events",
 };
 
