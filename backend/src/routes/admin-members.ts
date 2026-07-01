@@ -34,12 +34,17 @@ adminMembersRouter.post("/admin/members", async (req: Request, res: Response) =>
     const random = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
     const membershipCode = `MEM-${year}-${random}`;
 
+    // Set membership expiry to 1 year from now
+    const expiresAt = new Date();
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
     const result = await db.query(
       `INSERT INTO users (first_name, last_name, email, phone, password_hash,
         gender, state_of_origin, lga, residential_address,
         membership_category_id, membership_category_name,
-        membership_code, application_status, is_verified)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'approved',TRUE)
+        membership_code, application_status, is_verified,
+        membership_expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'approved',TRUE,$13)
        RETURNING id, first_name, last_name, email, phone,
          membership_category_name, membership_code, application_status,
          is_suspended, membership_expires_at, created_at`,
@@ -47,7 +52,7 @@ adminMembersRouter.post("/admin/members", async (req: Request, res: Response) =>
         firstName.trim(), lastName.trim(), email.trim().toLowerCase(), phone || null,
         passwordHash, gender || null, stateOfOrigin || null, lga || null,
         residentialAddress || null, categoryId || null, categoryName || null,
-        membershipCode,
+        membershipCode, expiresAt,
       ]
     );
 

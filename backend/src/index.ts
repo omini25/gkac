@@ -4,6 +4,7 @@ import path from "path";
 import cors from "cors";
 import { getDbPool, testDbConnection } from "./db";
 import { getRedisClient, testRedisConnection } from "./redis";
+import { getUploadsDir } from "./uploads";
 import { healthRouter } from "./routes/health";
 import { authRouter } from "./routes/auth";
 import { paymentsRouter } from "./routes/payments";
@@ -38,7 +39,7 @@ async function main() {
   app.use(express.json());
 
   // Serve uploaded files
-  app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
+  app.use("/uploads", express.static(getUploadsDir()));
 
   // Initialize connections
   const db = getDbPool();

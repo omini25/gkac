@@ -6,6 +6,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { getDbPool } from "../db";
 import { EmailTemplates, sendTemplatedEmail } from "../email";
+import { getUploadsDir } from "../uploads";
 
 export const paymentsRouter = Router();
 
@@ -24,7 +25,7 @@ function getAuthUserId(req: Request): string | null {
   }
 }
 
-const UPLOAD_DIR = path.join(__dirname, "..", "..", "uploads");
+const UPLOAD_DIR = getUploadsDir();
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const proofStorage = multer.diskStorage({

@@ -4,11 +4,12 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { getDbPool } from "../db";
+import { getUploadsDir } from "../uploads";
 
 export const contentRouter = Router();
 
 // ── Multer setup for content image uploads ─────────────────────────────────
-const UPLOAD_DIR = path.join(__dirname, "..", "..", "uploads");
+const UPLOAD_DIR = getUploadsDir();
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const contentUpload = multer({

@@ -5,11 +5,12 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { getDbPool } from "../db";
+import { getUploadsDir } from "../uploads";
 
 export const electionsRouter = Router();
 
 // ─── File upload setup for election forms ────────────────────────────────
-const ELECTION_FORMS_DIR = path.join(__dirname, "..", "..", "uploads", "election-forms");
+const ELECTION_FORMS_DIR = path.join(getUploadsDir(), "election-forms");
 if (!fs.existsSync(ELECTION_FORMS_DIR)) {
   fs.mkdirSync(ELECTION_FORMS_DIR, { recursive: true });
 }
@@ -1415,7 +1416,7 @@ electionsRouter.get("/elections/:id/results", async (_req: Request, res: Respons
 // ============================================================================
 
 // Upload directory for posters
-const ELECTION_POSTERS_DIR = path.join(__dirname, "..", "..", "uploads", "election-posters");
+const ELECTION_POSTERS_DIR = path.join(getUploadsDir(), "election-posters");
 if (!fs.existsSync(ELECTION_POSTERS_DIR)) {
   fs.mkdirSync(ELECTION_POSTERS_DIR, { recursive: true });
 }
@@ -1550,7 +1551,7 @@ electionsRouter.get("/elections/posters/file/:filename", async (req: Request, re
 // ============================================================================
 
 // Upload directory for candidate photos
-const CANDIDATE_PHOTOS_DIR = path.join(__dirname, "..", "..", "uploads", "election-candidate-photos");
+const CANDIDATE_PHOTOS_DIR = path.join(getUploadsDir(), "election-candidate-photos");
 if (!fs.existsSync(CANDIDATE_PHOTOS_DIR)) {
   fs.mkdirSync(CANDIDATE_PHOTOS_DIR, { recursive: true });
 }

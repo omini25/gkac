@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { api, validateFileSize, type Election, type ElectionDetail, type ElectionPosition, type ElectionDeclaration, type ElectionResults } from "@/lib/api";
 
 export default function AdminElectionsPage() {
@@ -88,6 +88,12 @@ export default function AdminElectionsPage() {
 
   // Detail view
   const [selectedElection, setSelectedElection] = useState<ElectionDetail | null>(null);
+
+  // Lightbox
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
+
+  // Expanded election row
+  const [expandedElection, setExpandedElection] = useState<string | null>(null);
 
   const showToast = useCallback((msg: string, type: string) => {
     setToast({ msg, type });
@@ -571,29 +577,67 @@ export default function AdminElectionsPage() {
               <table className="data-table data-table-elections">
                 <thead>
                   <tr>
+                    <th style={{ width: 30 }}></th>
                     <th>Election</th>
-                    <th>Period</th>
-                    <th>Positions</th>
-                    <th>Turnout</th>
+                    <th>Timeline</th>
+                    <th style={{ textAlign: "center" }}>Positions</th>
+                    <th style={{ textAlign: "center" }}>Votes</th>
+                    <th style={{ textAlign: "center" }}>Turnout</th>
                     <th>Status</th>
-                    <th>Actions</th>
+                    <th style={{ width: 50 }}></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {elections.map((el) => (
-                    <tr key={el.id}>
-                      <td style={{ fontWeight: 600 }}>{el.title}</td>
-                      <td style={{ fontSize: 13, color: "var(--muted)" }}>
-                        {formatDate(el.start_date)} – {formatDate(el.end_date)}
+                  {elections.map((el) => {
+                    const isExpanded = expandedElection === el.id;
+                    const turnout = el.eligible_voters > 0 ? Math.round((el.total_votes / el.eligible_voters) * 100) : 0;
+                    const statusIcon = el.status === "draft" ? "📝" : el.status === "upcoming" ? "📅" : el.status === "active" ? "🗳️" : "✅";
+                    return (
+                    <React.Fragment key={el.id}>
+                    <tr
+                      style={{ cursor: "pointer" }}
+                      onClick={() => setExpandedElection(isExpanded ? null : el.id)}
+                    >
+                      <td style={{ textAlign: "center", fontSize: 12, color: "var(--muted)" }}>
+                        {isExpanded ? "▼" : "▶"}
                       </td>
-                      <td>{el.positions_count}</td>
                       <td>
-                        {el.total_votes > 0
-                          ? `${el.total_votes} / ${el.eligible_voters} (${el.eligible_voters > 0 ? Math.round((el.total_votes / el.eligible_voters) * 100) : 0}%)`
-                          : "—"}
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>{el.title}</div>
+                        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                          {formatDate(el.start_date)} – {formatDate(el.end_date)}
+                        </div>
                       </td>
-                      <td><span className={statusBadge(el.status)}>{el.status}</span></td>
-                      <td className="actions">
+                      <td style={{ fontSize: 12, color: "var(--muted)" }}>
+                        {el.declaration_start ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                            <span>📝 Dec: {formatDate(el.declaration_start)}</span>
+                            {el.election_date && <span>🗳️ Vote: {formatDate(el.election_date)}</span>}
+                          </div>
+                        ) : "—"}
+                      </td>
+                      <td style={{ textAlign: "center", fontWeight: 700, fontSize: 18, color: "var(--green-dark)" }}>{el.positions_count}</td>
+                      <td style={{ textAlign: "center" }}>
+                        <div style={{ fontWeight: 700, fontSize: 16 }}>{el.total_votes || 0}</div>
+                        <div style={{ fontSize: 11, color: "var(--muted)" }}>/ {el.eligible_voters || 0}</div>
+                      </td>
+                      <td style={{ textAlign: "center", minWidth: 80 }}>
+                        {el.total_votes > 0 ? (
+                          <>
+                            <div style={{ fontWeight: 700, fontSize: 16, color: turnout > 50 ? "var(--success)" : "var(--warn)" }}>
+                              {turnout}%
+                            </div>
+                            <div className="progress-bar" style={{ maxWidth: 60, margin: "2px auto 0" }}>
+                              <div className="fill" style={{ width: `${turnout}%`, background: turnout > 50 ? "var(--success)" : "var(--warn)" }} />
+                            </div>
+                          </>
+                        ) : "—"}
+                      </td>
+                      <td>
+                        <span className={statusBadge(el.status)} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          {statusIcon} {el.status}
+                        </span>
+                      </td>
+                      <td className="actions" onClick={(e) => e.stopPropagation()}>
                         <div className="dropdown-wrapper">
                           <button
                             className="dropdown-trigger"
@@ -628,7 +672,56 @@ export default function AdminElectionsPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={8} style={{ padding: "0 16px 16px", background: "var(--bg)" }}>
+                          <div style={{
+                            borderRadius: "var(--radius-md)",
+                            border: "1px solid var(--border)",
+                            padding: 16,
+                            marginTop: 4,
+                            background: "var(--surface)",
+                          }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+                              {el.description && (
+                                <div style={{ gridColumn: "1 / -1" }}>
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Description</span>
+                                  <p style={{ fontSize: 13, marginTop: 4 }}>{el.description}</p>
+                                </div>
+                              )}
+                              {[
+                                { label: "Declaration Period", value: el.declaration_start && el.declaration_end ? `${formatDate(el.declaration_start)} – ${formatDate(el.declaration_end)}` : null },
+                                { label: "Nomination Period", value: el.nomination_start && el.nomination_end ? `${formatDate(el.nomination_start)} – ${formatDate(el.nomination_end)}` : null },
+                                { label: "Eligible Voters Released", value: el.eligible_voters_release_date ? formatDate(el.eligible_voters_release_date) : null },
+                                { label: "Screening Date", value: el.screening_date ? formatDate(el.screening_date) : null },
+                                { label: "Qualified Candidates Released", value: el.qualified_candidates_release_date ? formatDate(el.qualified_candidates_release_date) : null },
+                                { label: "Manifesto Date", value: el.manifesto_date ? formatDate(el.manifesto_date) : null },
+                                { label: "Election Day", value: el.election_date ? formatDate(el.election_date) : null },
+                                { label: "Swearing-In Ceremony", value: el.swearing_in_date ? formatDate(el.swearing_in_date) : null },
+                              ].filter(item => item.value).map(item => (
+                                <div key={item.label}>
+                                  <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{item.label}</span>
+                                  <div style={{ fontSize: 13, marginTop: 2 }}>{item.value}</div>
+                                </div>
+                              ))}
+                              {(el.eligible_roles?.length > 0) && (
+                                <div>
+                                  <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Eligible Roles</span>
+                                  <div style={{ fontSize: 13, marginTop: 2, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                    {(el.eligible_roles as string[]).map(r => (
+                                      <span key={r} className="badge badge-active">{r}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -663,6 +756,7 @@ export default function AdminElectionsPage() {
                 <table className="data-table">
                   <thead>
                     <tr>
+                      <th>Photo</th>
                       <th>Member</th>
                       <th>Position</th>
                       <th>Form Type</th>
@@ -680,6 +774,41 @@ export default function AdminElectionsPage() {
                       const proofUrl = d.proof_file_path ? api.getFormDownloadUrl(d.proof_file_path) : null;
                       return (
                       <tr key={d.id}>
+                        <td style={{ verticalAlign: "middle" }}>
+                          {(d as any).candidate_photo_url ? (
+                            <img
+                              src={api.getCandidatePhotoUrl((d as any).candidate_photo_url)}
+                              alt={`${d.first_name} ${d.last_name}`}
+                              style={{
+                                width: 44,
+                                height: 44,
+                                borderRadius: "50%",
+                                objectFit: "cover",
+                                cursor: "pointer",
+                                border: "2px solid var(--border)",
+                                display: "block",
+                              }}
+                              onClick={() => setLightbox({ src: api.getCandidatePhotoUrl((d as any).candidate_photo_url), alt: `${d.first_name} ${d.last_name}` })}
+                              title="Click to view full size"
+                            />
+                          ) : (
+                            <span style={{
+                              width: 44,
+                              height: 44,
+                              borderRadius: "50%",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background: "var(--bg)",
+                              color: "var(--muted)",
+                              fontSize: 16,
+                              fontWeight: 700,
+                              border: "2px solid var(--border)",
+                            }}>
+                              {d.first_name?.[0]}{d.last_name?.[0]}
+                            </span>
+                          )}
+                        </td>
                         <td>
                           <strong>{d.first_name} {d.last_name}</strong>
                           <br /><span style={{ fontSize: 12, color: "var(--muted)" }}>{d.email}</span>
@@ -814,7 +943,7 @@ export default function AdminElectionsPage() {
             </div>
           </div>
         ) : (
-          <ResultsView results={results} onClose={() => { setShowResults(null); setResults(null); }} />
+          <ResultsView results={results} onClose={() => { setShowResults(null); setResults(null); }} setLightbox={setLightbox} />
         )}
       </div>
 
@@ -1135,7 +1264,9 @@ export default function AdminElectionsPage() {
                         background: "var(--surface)",
                         position: "relative",
                         aspectRatio: "4 / 3",
+                        cursor: "pointer",
                       }}
+                      onClick={() => setLightbox({ src: posterUrl, alt: poster.title || poster.original_name })}
                     >
                       <img
                         src={posterUrl}
@@ -1145,21 +1276,24 @@ export default function AdminElectionsPage() {
                           height: "100%",
                           objectFit: "cover",
                           display: "block",
+                          transition: "transform 0.3s",
                         }}
+                        onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
                       />
                       {/* Overlay on hover */}
                       <div
                         style={{
                           position: "absolute",
                           inset: 0,
-                          background: "rgba(0,0,0,0.5)",
+                          background: "linear-gradient(transparent 50%, rgba(0,0,0,0.6))",
                           opacity: 0,
                           transition: "opacity 0.2s",
                           display: "flex",
                           flexDirection: "column",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          gap: 8,
+                          justifyContent: "flex-end",
+                          alignItems: "stretch",
+                          gap: 4,
                           padding: 12,
                         }}
                         onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
@@ -1170,22 +1304,21 @@ export default function AdminElectionsPage() {
                             {poster.title}
                           </span>
                         )}
-                        <a
-                          href={posterUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn btn-outline btn-xs"
-                          style={{ background: "rgba(255,255,255,0.9)", color: "#000", border: "none" }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          🔍 View
-                        </a>
-                        <button
-                          className="btn btn-danger btn-xs"
-                          onClick={() => deletePoster(poster.id)}
-                        >
-                          🗑 Delete
-                        </button>
+                        <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                          <button
+                            className="btn btn-outline btn-xs"
+                            style={{ background: "rgba(255,255,255,0.9)", color: "#000", border: "none" }}
+                            onClick={(e) => { e.stopPropagation(); setLightbox({ src: posterUrl, alt: poster.title || poster.original_name }); }}
+                          >
+                            🔍 View
+                          </button>
+                          <button
+                            className="btn btn-danger btn-xs"
+                            onClick={(e) => { e.stopPropagation(); deletePoster(poster.id); }}
+                          >
+                            🗑 Delete
+                          </button>
+                        </div>
                       </div>
                       {/* Bottom label */}
                       <div style={{
@@ -1506,6 +1639,29 @@ export default function AdminElectionsPage() {
         </div>
       )}
 
+      {/* ═══ LIGHTBOX ═══ */}
+      {lightbox && (
+        <div
+          className="modal-overlay open"
+          style={{ zIndex: 200, cursor: "zoom-out", background: "rgba(0,0,0,.85)" }}
+          onClick={() => setLightbox(null)}
+        >
+          <div style={{ maxWidth: "90vw", maxHeight: "90vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <img
+              src={lightbox.src}
+              alt={lightbox.alt}
+              style={{
+                maxWidth: "100%",
+                maxHeight: "90vh",
+                borderRadius: "var(--radius-lg)",
+                boxShadow: "0 20px 60px rgba(0,0,0,.4)",
+                objectFit: "contain",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       <div className={`toast${toast.msg ? " show" : ""}${toast.type ? " " + toast.type : ""}`}>
         {toast.msg}
       </div>
@@ -1514,7 +1670,7 @@ export default function AdminElectionsPage() {
 }
 
 // ─── Results View Component ─────────────────────────────────────────────
-function ResultsView({ results, onClose }: { results: ElectionResults; onClose: () => void }) {
+function ResultsView({ results, onClose, setLightbox }: { results: ElectionResults; onClose: () => void; setLightbox: (v: { src: string; alt: string } | null) => void }) {
   // ─── Photo upload state ──────────────────────────────────────────────
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [photoToast, setPhotoToast] = useState("");
@@ -1609,30 +1765,68 @@ function ResultsView({ results, onClose }: { results: ElectionResults; onClose: 
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          {c.photoUrl && (
-                            <img
-                              src={api.getCandidatePhotoUrl(c.photoUrl)}
-                              alt={`${c.firstName} ${c.lastName}`}
-                              style={{
-                                width: 44,
-                                height: 44,
+                        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                          <div style={{ position: "relative", flexShrink: 0 }}>
+                            {c.photoUrl ? (
+                              <img
+                                src={api.getCandidatePhotoUrl(c.photoUrl)}
+                                alt={`${c.firstName} ${c.lastName}`}
+                                style={{
+                                  width: 52,
+                                  height: 52,
+                                  borderRadius: "50%",
+                                  objectFit: "cover",
+                                  border: `3px solid ${isWinner ? "var(--green)" : "var(--border)"}`,
+                                  cursor: "pointer",
+                                }}
+                                onClick={() => setLightbox({ src: api.getCandidatePhotoUrl(c.photoUrl), alt: `${c.firstName} ${c.lastName}` })}
+                                title="Click to view full size"
+                              />
+                            ) : (
+                              <span style={{
+                                width: 52,
+                                height: 52,
                                 borderRadius: "50%",
-                                objectFit: "cover",
-                                flexShrink: 0,
-                                border: "2px solid var(--border)",
-                              }}
-                            />
-                          )}
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                background: "var(--bg)",
+                                color: "var(--muted)",
+                                fontSize: 20,
+                                fontWeight: 700,
+                                border: `3px solid ${isWinner ? "var(--green)" : "var(--border)"}`,
+                              }}>
+                                {c.firstName?.[0]}{c.lastName?.[0]}
+                              </span>
+                            )}
+                            {isWinner && (
+                              <span style={{
+                                position: "absolute",
+                                bottom: -2,
+                                right: -2,
+                                fontSize: 14,
+                                background: "var(--surface)",
+                                borderRadius: "50%",
+                                width: 22,
+                                height: 22,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                border: "2px solid var(--green)",
+                              }}>
+                                {results.election.status === "closed" ? "🏆" : "👑"}
+                              </span>
+                            )}
+                          </div>
                           <div>
-                            <strong>{c.firstName} {c.lastName}</strong>
-                            {isWinner && results.election.status === "closed" && (
-                              <span className="badge badge-active" style={{ marginLeft: 8 }}>Winner</span>
-                            )}
-                            {isWinner && results.election.status === "active" && (
-                              <span className="badge badge-active" style={{ marginLeft: 8 }}>Leading</span>
-                            )}
-                            <br />
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                              <strong style={{ fontSize: 15 }}>{c.firstName} {c.lastName}</strong>
+                              {isWinner && (
+                                <span className={`badge ${results.election.status === "closed" ? "badge-active" : "badge-warn"}`}>
+                                  {results.election.status === "closed" ? "Winner" : "Leading"}
+                                </span>
+                              )}
+                            </div>
                             <span style={{ fontSize: 12, color: "var(--muted)" }}>{c.membershipCategory} · {c.membershipCode}</span>
                           </div>
                         </div>

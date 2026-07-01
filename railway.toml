@@ -11,8 +11,11 @@
     watchPatterns = ["backend/src/**", "backend/package.json"]
 
   # Persistent volume for uploaded files (images, payment proofs, etc.)
+  # With nixpacks, the project root is /app and backend is a subdirectory.
+  # The code resolves uploads relative to dist/ -> backend/uploads/
+  # Override with UPLOADS_DIR env var if your setup differs.
   [services.backend.volumes]
-    "uploads" = "/app/uploads"
+    "uploads" = "/app/backend/uploads"
 
 # ── Frontend service ────────────────────────────────────────────
 [services.frontend]
