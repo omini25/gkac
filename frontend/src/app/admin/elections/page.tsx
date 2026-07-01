@@ -1779,7 +1779,7 @@ function ResultsView({ results, onClose, setLightbox }: { results: ElectionResul
                                   border: `3px solid ${isWinner ? "var(--green)" : "var(--border)"}`,
                                   cursor: "pointer",
                                 }}
-                                onClick={() => setLightbox({ src: api.getCandidatePhotoUrl(c.photoUrl), alt: `${c.firstName} ${c.lastName}` })}
+                                onClick={() => setLightbox({ src: api.getCandidatePhotoUrl(c.photoUrl!), alt: `${c.firstName} ${c.lastName}` })}
                                 title="Click to view full size"
                               />
                             ) : (
