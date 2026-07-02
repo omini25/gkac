@@ -932,7 +932,7 @@ export default function AdminElectionsPage() {
                                   setViewFormData({
                                     data: parsed,
                                     member: `${d.first_name} ${d.last_name}`,
-                                    position: d.position_title,
+                                    position: d.position_title || "",
                                     formType: d.form_type || "declaration",
                                   });
                                 } catch {}
