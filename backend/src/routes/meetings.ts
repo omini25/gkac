@@ -103,25 +103,25 @@ meetingsRouter.get("/meetings/events", async (_req: Request, res: Response) => {
 meetingsRouter.get("/meetings", async (req: Request, res: Response) => {
   try {
     const db = getDbPool();
-    const auth = authenticate(req, res);
-    const isAdmin = auth ? await requireAdmin(auth, res).catch(() => false) : false;
 
-    // Re-authenticate cleanly since the above already sent response on failure
-    let token: TokenPayload | null = null;
+    // Silently authenticate — no error response if missing/invalid token
+    let userId: string | null = null;
     const header = req.headers.authorization;
     if (header && header.startsWith("Bearer ")) {
       try {
-        token = jwt.verify(header.slice(7), JWT_SECRET) as TokenPayload;
-      } catch { /* ignore */ }
+        const payload = jwt.verify(header.slice(7), JWT_SECRET) as TokenPayload;
+        userId = payload.userId;
+      } catch { /* ignore — treat as unauthenticated */ }
     }
 
-    let adminCheck = false;
-    if (token) {
-      const adminResult = await db.query("SELECT is_admin FROM users WHERE id = $1", [token.userId]);
-      adminCheck = adminResult.rows.length > 0 && adminResult.rows[0].is_admin;
+    // Check if user is admin
+    let isAdmin = false;
+    if (userId) {
+      const adminResult = await db.query("SELECT is_admin FROM users WHERE id = $1", [userId]);
+      isAdmin = adminResult.rows.length > 0 && adminResult.rows[0].is_admin;
     }
 
-    if (adminCheck) {
+    if (isAdmin) {
       // Admin sees all meetings
       const result = await db.query(
         `SELECT m.*,
@@ -135,7 +135,7 @@ meetingsRouter.get("/meetings", async (req: Request, res: Response) => {
       return res.json({ meetings: result.rows });
     }
 
-    // Non-admin sees only upcoming/active (or all if anyone_with_link is public)
+    // Non-admin sees only upcoming/active
     const result = await db.query(
       `SELECT m.*,
         (SELECT COUNT(*) FROM meeting_attendees WHERE meeting_id = m.id) AS attendee_count

@@ -75,7 +75,7 @@ export default function EventsPage() {
     const sc = sourceColors[ev._source] || sourceColors.content;
 
     return (
-      <Link href={`/events/${ev.id}`} className="event-card-link">
+      // <Link href={`/events/${ev.id}`} className="event-card-link">
         <article className={`event-card ${isPast ? "event-card--past" : ""}`}>
           <div className="event-date-badge">
             <span className="day">{fd.day}</span>
@@ -107,13 +107,13 @@ export default function EventsPage() {
               <p className="event-desc">{ev.description}</p>
             )}
           </div>
-          <div className="event-card-arrow">
+          {/* <div className="event-card-arrow">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M7 4l6 6-6 6" />
             </svg>
-          </div>
+          </div> */}
         </article>
-      </Link>
+      // </Link>
     );
   }
 
