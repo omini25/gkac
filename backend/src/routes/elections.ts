@@ -98,7 +98,8 @@ electionsRouter.get("/elections", async (_req: Request, res: Response) => {
           application_status = 'approved' AND
           membership_expires_at > NOW() AND
           annual_due_paid = TRUE AND
-          annual_developmental_fee_paid = TRUE
+          annual_developmental_fee_paid = TRUE AND
+          id NOT IN (SELECT user_id FROM election_voter_exceptions WHERE election_id = e.id)
         ) AS eligible_voters
        FROM elections e
        ORDER BY e.created_at DESC`
@@ -216,7 +217,8 @@ electionsRouter.get("/elections/:id", async (req: Request, res: Response) => {
           application_status = 'approved' AND
           membership_expires_at > NOW() AND
           annual_due_paid = TRUE AND
-          annual_developmental_fee_paid = TRUE
+          annual_developmental_fee_paid = TRUE AND
+          id NOT IN (SELECT user_id FROM election_voter_exceptions WHERE election_id = $1)
         ) AS eligible_voters
        FROM elections e WHERE e.id = $1`,
       [id]
@@ -569,7 +571,9 @@ electionsRouter.get("/elections/:id/eligible-voters", async (req: Request, res: 
          AND u.membership_expires_at > NOW()
          AND u.annual_due_paid = TRUE
          AND u.annual_developmental_fee_paid = TRUE
-       ORDER BY u.last_name, u.first_name`
+         AND u.id NOT IN (SELECT user_id FROM election_voter_exceptions WHERE election_id = $1)
+       ORDER BY u.last_name, u.first_name`,
+      [req.params.id]
     );
 
     const voters = result.rows.map((r: any) => ({
@@ -593,6 +597,108 @@ electionsRouter.get("/elections/:id/eligible-voters", async (req: Request, res: 
     return res.status(500).json({ error: "Failed to fetch eligible voters." });
   }
 });
+
+// ============================================================================
+// VOTER EXCEPTIONS (admin can exempt members from voting)
+// ============================================================================
+
+// ─── GET /api/elections/:id/voter-exceptions ─────────────────────────────
+electionsRouter.get("/elections/:id/voter-exceptions", async (req: Request, res: Response) => {
+  const auth = authenticate(req, res);
+  if (!auth) return;
+  if (!(await requireAdmin(auth, res))) return;
+
+  try {
+    const db = getDbPool();
+    const result = await db.query(
+      `SELECT e.*, u.first_name, u.last_name, u.email, u.membership_code
+       FROM election_voter_exceptions e
+       JOIN users u ON e.user_id = u.id
+       WHERE e.election_id = $1
+       ORDER BY u.last_name, u.first_name`,
+      [req.params.id]
+    );
+    return res.json({ exceptions: result.rows });
+  } catch (err) {
+    console.error("Error fetching voter exceptions:", err);
+    return res.status(500).json({ error: "Failed to fetch voter exceptions." });
+  }
+});
+
+// ─── POST /api/elections/:id/voter-exceptions ───────────────────────────
+// Body: { userIds: string[] } — array of user IDs to exempt
+electionsRouter.post("/elections/:id/voter-exceptions", async (req: Request, res: Response) => {
+  const auth = authenticate(req, res);
+  if (!auth) return;
+  if (!(await requireAdmin(auth, res))) return;
+
+  try {
+    const db = getDbPool();
+    const { userIds } = req.body;
+
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: "userIds array is required." });
+    }
+
+    let added = 0;
+    let skipped = 0;
+
+    for (const userId of userIds) {
+      try {
+        await db.query(
+          `INSERT INTO election_voter_exceptions (election_id, user_id, created_by)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (election_id, user_id) DO NOTHING`,
+          [req.params.id, userId, auth.userId]
+        );
+        // Check if it was actually inserted (not skipped due to conflict)
+        const check = await db.query(
+          "SELECT id FROM election_voter_exceptions WHERE election_id = $1 AND user_id = $2",
+          [req.params.id, userId]
+        );
+        if (check.rows.length > 0 && check.rows[0].id) {
+          // Check if this was a new insert or pre-existing
+          // We can just count it optimistically
+        }
+        added++;
+      } catch {
+        skipped++;
+      }
+    }
+
+    return res.status(201).json({
+      message: `${added} member(s) added to exception list.${skipped > 0 ? ` ${skipped} skipped.` : ""}`,
+      added,
+      skipped,
+    });
+  } catch (err) {
+    console.error("Error adding voter exceptions:", err);
+    return res.status(500).json({ error: "Failed to add voter exceptions." });
+  }
+});
+
+// ─── DELETE /api/elections/:id/voter-exceptions/:userId ─────────────────
+electionsRouter.delete("/elections/:id/voter-exceptions/:userId", async (req: Request, res: Response) => {
+  const auth = authenticate(req, res);
+  if (!auth) return;
+  if (!(await requireAdmin(auth, res))) return;
+
+  try {
+    const db = getDbPool();
+    const result = await db.query(
+      "DELETE FROM election_voter_exceptions WHERE election_id = $1 AND user_id = $2 RETURNING id",
+      [req.params.id, req.params.userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Exception not found." });
+    }
+    return res.json({ message: "Member removed from exception list." });
+  } catch (err) {
+    console.error("Error removing voter exception:", err);
+    return res.status(500).json({ error: "Failed to remove voter exception." });
+  }
+});
+
 // ============================================================================
 // DECLARATIONS (members declare interest in positions)
 // ============================================================================
@@ -653,8 +759,8 @@ electionsRouter.post("/elections/:id/declare", uploadForm.fields([
 
     // Check if already declared for this position
     const existingResult = await db.query(
-      "SELECT id, status FROM election_declarations WHERE position_id = $1 AND user_id = $2 AND form_type = $3",
-      [positionId, auth.userId, formType]
+      "SELECT id, status FROM election_declarations WHERE position_id = $1 AND user_id = $2",
+      [positionId, auth.userId]
     );
     if (existingResult.rows.length > 0) {
       return res.status(409).json({
@@ -1014,12 +1120,12 @@ electionsRouter.post("/elections/:id/declare-as-admin", uploadForm.fields([
 
     // Check if already declared for this position
     const existingResult = await db.query(
-      "SELECT id, status FROM election_declarations WHERE position_id = $1 AND user_id = $2 AND form_type = $3",
-      [positionId, userId, formType]
+      "SELECT id, status FROM election_declarations WHERE position_id = $1 AND user_id = $2",
+      [positionId, userId]
     );
     if (existingResult.rows.length > 0) {
       return res.status(409).json({
-        error: `This member has already submitted a ${formType} form for this position.`,
+        error: "This member has already submitted a form for this position.",
         declaration: existingResult.rows[0],
       });
     }
@@ -1142,6 +1248,15 @@ electionsRouter.post("/elections/:id/vote", async (req: Request, res: Response) 
     );
     if (userResult.rows.length === 0) {
       return res.status(403).json({ error: "Only active members with approved status can vote." });
+    }
+
+    // Check if voter is on the exception list (exempted from voting)
+    const exempted = await db.query(
+      "SELECT id FROM election_voter_exceptions WHERE election_id = $1 AND user_id = $2",
+      [id, auth.userId]
+    );
+    if (exempted.rows.length > 0) {
+      return res.status(403).json({ error: "You have been exempted from voting in this election." });
     }
 
     // Process votes in transaction
@@ -1350,10 +1465,12 @@ electionsRouter.get("/elections/:id/results", async (_req: Request, res: Respons
     }
     const election = electionResult.rows[0];
 
-    // Count eligible voters (approved members with active membership)
+    // Count eligible voters (approved members with active membership, excluding exempted)
     const eligibleResult = await db.query(
       `SELECT COUNT(*) AS count FROM users
-       WHERE application_status = 'approved' AND membership_expires_at > NOW()`
+       WHERE application_status = 'approved' AND membership_expires_at > NOW()
+         AND id NOT IN (SELECT user_id FROM election_voter_exceptions WHERE election_id = $1)`,
+      [id]
     );
     const eligibleVoters = parseInt(eligibleResult.rows[0].count, 10);
 

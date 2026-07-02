@@ -54,7 +54,7 @@ export default function ElectionsPage() {
   const [declarePhotoFile, setDeclarePhotoFile] = useState<File | null>(null);
   const [declaring, setDeclaring] = useState(false);
 
-  // Nomination modal (nominate another member with form upload + payment proof)
+  // Nomination modal (nominate another member with online form or form upload + payment proof)
   const [nominateElection, setNominateElection] = useState<Election | null>(null);
   const [nominatePositions, setNominatePositions] = useState<ElectionPosition[]>([]);
   const [nominatePositionId, setNominatePositionId] = useState("");
@@ -63,6 +63,20 @@ export default function ElectionsPage() {
   const [nominateProofFile, setNominateProofFile] = useState<File | null>(null);
   const [nominating, setNominating] = useState(false);
   const [nominationFee, setNominationFee] = useState(50000);
+  const [nominateMode, setNominateMode] = useState<"online" | "upload">("online");
+  const [nominateFormFields, setNominateFormFields] = useState({
+    fullName: "",
+    dob: "",
+    permanentAddress: "",
+    currentAddress: "",
+    institutions: "",
+    nextOfKin: "",
+    sponsorI: "",
+    sponsorII: "",
+    stateOfOrigin: "",
+    signature: "",
+    date: "",
+  });
   // Nominee search for nomination
   const [nomineeSearch, setNomineeSearch] = useState("");
   const [nomineeResults, setNomineeResults] = useState<{ id: string; name: string; email: string; mno: string }[]>([]);
@@ -254,6 +268,28 @@ export default function ElectionsPage() {
   }
 
   // ─── Nomination Form (nominate another member with form upload) ─────────
+  const resetNominateModal = useCallback(() => {
+    setNominateElection(null);
+    setNominatePositionId("");
+    setNominateStatement("");
+    setNominateFormFile(null);
+    setNominateProofFile(null);
+    setNominateMode("online");
+    setNominateFormFields({
+      fullName: "", dob: "", permanentAddress: "", currentAddress: "",
+      institutions: "", nextOfKin: "", sponsorI: "", sponsorII: "",
+      stateOfOrigin: "", signature: "", date: "",
+    });
+    setNomineeSearch("");
+    setNomineeResults([]);
+    setNomineeUserId("");
+  }, []);
+
+  function makeNominationFileForDownload(fields: typeof nominateFormFields, electionTitle: string) {
+    const content = `NOMINATION FORM\n\nElection: ${electionTitle}\n\n=== CANDIDATE BACKGROUND INFORMATION ===\n1. Full Name: ${fields.fullName}\n2. Date of Birth: ${fields.dob}\n3. Permanent Address: ${fields.permanentAddress}\n4. Current Address: ${fields.currentAddress}\n5. Higher Institution(s) Attended with Date: ${fields.institutions}\n6. Next of Kin: ${fields.nextOfKin}\n7. Name of Sponsor I: ${fields.sponsorI}\n8. Name of Sponsor II: ${fields.sponsorII}\n9. State of Origin: ${fields.stateOfOrigin}\n\n=== DECLARATION OF ELIGIBILITY ===\nSignature of Nominee: ${fields.signature}\nDate: ${fields.date}\n`;
+    return new File([content], `Nomination-Form-${electionTitle.replace(/\s+/g, "_") || "form"}.txt`, { type: "text/plain" });
+  }
+
   async function searchNomineeMembers(query: string) {
     setNomineeSearch(query);
     setNomineeUserId("");
@@ -277,6 +313,42 @@ export default function ElectionsPage() {
       showToast("Please select a position and nominee.", "error");
       return;
     }
+
+    if (nominateMode === "online") {
+      const requiredFields = [
+        "fullName", "dob", "permanentAddress", "currentAddress",
+        "institutions", "nextOfKin", "sponsorI", "sponsorII",
+        "stateOfOrigin", "signature", "date",
+      ] as const;
+      const missing = requiredFields.find((key) => !nominateFormFields[key]);
+      if (missing) {
+        showToast("Please complete all online nomination fields before submitting.", "error");
+        return;
+      }
+      if (!nominateProofFile) {
+        showToast("Please upload your proof of payment.", "error");
+        return;
+      }
+      setNominating(true);
+      const res = await api.submitNominationOnline(
+        nominateElection.id,
+        nominatePositionId,
+        nomineeUserId,
+        nominateFormFields,
+        nominateProofFile,
+        nominateStatement || undefined
+      );
+      setNominating(false);
+      if (res.data) {
+        showToast("Nomination form submitted! Awaiting admin approval.", "success");
+        resetNominateModal();
+      } else {
+        showToast(res.error || "Failed to submit nomination", "error");
+      }
+      return;
+    }
+
+    // Upload mode
     if (!nominateFormFile) {
       showToast("Please upload the completed nomination form.", "error");
       return;
@@ -297,14 +369,7 @@ export default function ElectionsPage() {
     setNominating(false);
     if (res.data) {
       showToast("Nomination form submitted! Awaiting admin approval.", "success");
-      setNominateElection(null);
-      setNominatePositionId("");
-      setNominateStatement("");
-      setNominateFormFile(null);
-      setNominateProofFile(null);
-      setNomineeSearch("");
-      setNomineeResults([]);
-      setNomineeUserId("");
+      resetNominateModal();
     } else {
       showToast(res.error || "Failed to submit nomination", "error");
     }
@@ -1110,15 +1175,33 @@ export default function ElectionsPage() {
         </div>
       )}
 
-      {/* ═══ NOMINATION MODAL (nominate another member with form upload + payment proof) ═══ */}
+      {/* ═══ NOMINATION MODAL (online form or form upload + payment proof) ═══ */}
       {nominateElection && (
-        <div className="modal-overlay open" onClick={() => { setNominateElection(null); setNominatePositionId(""); setNominateStatement(""); setNominateFormFile(null); setNominateProofFile(null); setNomineeSearch(""); setNomineeResults([]); setNomineeUserId(""); }}>
-          <div className="modal" style={{ maxWidth: 550, width: "calc(100% - 32px)", margin: "16px auto", maxHeight: "calc(100vh - 32px)", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => { setNominateElection(null); setNominatePositionId(""); setNominateStatement(""); setNominateFormFile(null); setNominateProofFile(null); setNomineeSearch(""); setNomineeResults([]); setNomineeUserId(""); }}>✕</button>
+        <div className="modal-overlay open" onClick={resetNominateModal}>
+          <div className="modal" style={{ maxWidth: 600, width: "calc(100% - 32px)", margin: "16px auto", maxHeight: "calc(100vh - 32px)", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={resetNominateModal}>✕</button>
             <h3>📋 Nomination Form</h3>
             <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
-              {nominateElection.title} — Nominate a fellow member for a position. Download the form, fill it, and upload.
+              {nominateElection.title} — Complete the nomination online or download the form and upload the filled copy.
             </p>
+
+            {/* Mode Toggle */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+              <button
+                className={`btn btn-sm${nominateMode === "online" ? " btn-accent" : " btn-outline"}`}
+                onClick={() => setNominateMode("online")}
+                type="button"
+              >
+                Online Form
+              </button>
+              <button
+                className={`btn btn-sm${nominateMode === "upload" ? " btn-accent" : " btn-outline"}`}
+                onClick={() => setNominateMode("upload")}
+                type="button"
+              >
+                Download & Upload
+              </button>
+            </div>
 
             {/* Instructions */}
             <div style={{
@@ -1130,12 +1213,23 @@ export default function ElectionsPage() {
               <ol style={{ margin: "8px 0 0", paddingLeft: 20 }}>
                 <li>Select the position you wish to nominate someone for</li>
                 <li>Search for and select the member you are nominating</li>
-                <li><strong>Download</strong> the Nomination form below</li>
-                <li>Fill out the form with the nominee's details and your details as the nominator</li>
-                <li><strong>Upload</strong> the completed form below</li>
+                {nominateMode === "online" ? (
+                  <>
+                    <li>Fill out the nomination fields below</li>
+                    <li>Download the completed nomination file if you want a copy</li>
+                    <li>Upload your proof of payment</li>
+                  </>
+                ) : (
+                  <>
+                    <li><strong>Download</strong> the blank Nomination form below</li>
+                    <li>Fill out the form with the nominee's details and your details as the nominator</li>
+                    <li><strong>Upload</strong> the completed form below</li>
+                    <li>Upload your proof of payment</li>
+                  </>
+                )}
                 <li>Submit — admin will review and respond</li>
               </ol>
-              <div style={{ marginTop: 10 }}>
+              <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <a
                   href="/forms/nomination form.pdf"
                   className="btn btn-outline btn-sm"
@@ -1143,8 +1237,29 @@ export default function ElectionsPage() {
                   rel="noopener noreferrer"
                   download
                 >
-                  📄 Download Nomination Form
+                  📄 Download Blank Nomination Form
                 </a>
+                {nominateMode === "online" && (
+                  <button
+                    className="btn btn-sm btn-accent"
+                    type="button"
+                    onClick={() => {
+                      if (!nominateElection) return;
+                      const file = makeNominationFileForDownload(nominateFormFields, nominateElection.title);
+                      const url = URL.createObjectURL(file);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.download = file.name;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                      showToast("Nomination form downloaded for your records.", "success");
+                    }}
+                  >
+                    📥 Download Completed File
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1217,7 +1332,114 @@ export default function ElectionsPage() {
               />
             </div>
 
-            {/* File Upload */}
+            {/* ═══ ONLINE NOMINATION FORM ═══ */}
+            {nominateMode === "online" && (
+              <div style={{ marginBottom: 16 }}>
+                <h4 style={{ marginBottom: 10, fontSize: 15 }}>Online Nomination Form</h4>
+
+                <h5 style={{ marginTop: 16, marginBottom: 8, fontSize: 14, color: "var(--accent)" }}>📋 Candidate Background Information</h5>
+
+                <div className="form-group">
+                  <label>1. Full Name</label>
+                  <input
+                    value={nominateFormFields.fullName}
+                    onChange={(e) => setNominateFormFields((prev) => ({ ...prev, fullName: e.target.value }))}
+                    placeholder="Full name of nominee"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>2. Date of Birth</label>
+                  <input
+                    type="date"
+                    value={nominateFormFields.dob}
+                    onChange={(e) => setNominateFormFields((prev) => ({ ...prev, dob: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>3. Permanent Address</label>
+                  <textarea
+                    rows={2}
+                    value={nominateFormFields.permanentAddress}
+                    onChange={(e) => setNominateFormFields((prev) => ({ ...prev, permanentAddress: e.target.value }))}
+                    placeholder="Permanent address of nominee"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>4. Current Address</label>
+                  <textarea
+                    rows={2}
+                    value={nominateFormFields.currentAddress}
+                    onChange={(e) => setNominateFormFields((prev) => ({ ...prev, currentAddress: e.target.value }))}
+                    placeholder="Current address of nominee"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>5. Higher Institution(s) Attended with Date</label>
+                  <textarea
+                    rows={2}
+                    value={nominateFormFields.institutions}
+                    onChange={(e) => setNominateFormFields((prev) => ({ ...prev, institutions: e.target.value }))}
+                    placeholder="Institutions attended with dates"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>6. Next of Kin</label>
+                  <input
+                    value={nominateFormFields.nextOfKin}
+                    onChange={(e) => setNominateFormFields((prev) => ({ ...prev, nextOfKin: e.target.value }))}
+                    placeholder="Name of next of kin"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>7. Name of Sponsor I</label>
+                  <input
+                    value={nominateFormFields.sponsorI}
+                    onChange={(e) => setNominateFormFields((prev) => ({ ...prev, sponsorI: e.target.value }))}
+                    placeholder="Sponsor I"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>8. Name of Sponsor II</label>
+                  <input
+                    value={nominateFormFields.sponsorII}
+                    onChange={(e) => setNominateFormFields((prev) => ({ ...prev, sponsorII: e.target.value }))}
+                    placeholder="Sponsor II"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>9. State of Origin</label>
+                  <input
+                    value={nominateFormFields.stateOfOrigin}
+                    onChange={(e) => setNominateFormFields((prev) => ({ ...prev, stateOfOrigin: e.target.value }))}
+                    placeholder="State of Origin"
+                  />
+                </div>
+
+                <h5 style={{ marginTop: 20, marginBottom: 8, fontSize: 14, color: "var(--accent)" }}>✅ Declaration of Eligibility</h5>
+
+                <div className="form-group">
+                  <label>Signature of Nominee</label>
+                  <input
+                    value={nominateFormFields.signature}
+                    onChange={(e) => setNominateFormFields((prev) => ({ ...prev, signature: e.target.value }))}
+                    placeholder="Type the nominee's signature"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Date</label>
+                  <input
+                    type="date"
+                    value={nominateFormFields.date}
+                    onChange={(e) => setNominateFormFields((prev) => ({ ...prev, date: e.target.value }))}
+                  />
+                </div>
+
+
+              </div>
+            )}
+
+            {/* File Upload — only for download & upload mode */}
+            {nominateMode !== "online" && (
             <div className="form-group">
               <label>Upload Completed Nomination Form *</label>
               <div style={{
@@ -1271,6 +1493,7 @@ export default function ElectionsPage() {
                 />
               </div>
             </div>
+            )}
 
             <div style={{
               padding: 12, marginBottom: 16, borderRadius: "var(--radius-md)",
@@ -1340,7 +1563,7 @@ export default function ElectionsPage() {
                       if (err) { showToast(err, "error"); e.target.value = ""; return; }
                       setNominateProofFile(e.target.files[0]);
                     }
- }}
+                  }}
                 />
               </div>
             </div>
@@ -1350,11 +1573,11 @@ export default function ElectionsPage() {
                 className="btn btn-accent"
                 style={{ flex: 1, minWidth: 140 }}
                 onClick={submitNomination}
-                disabled={nominating || !nominatePositionId || !nomineeUserId || !nominateFormFile || !nominateProofFile}
+                disabled={nominating || !nominatePositionId || !nomineeUserId || (nominateMode !== "online" && !nominateFormFile) || !nominateProofFile}
               >
                 {nominating ? "Submitting…" : "Submit Nomination"}
               </button>
-              <button className="btn btn-ghost" onClick={() => { setNominateElection(null); setNominatePositionId(""); setNominateStatement(""); setNominateFormFile(null); setNominateProofFile(null); setNomineeSearch(""); setNomineeResults([]); setNomineeUserId(""); }}>
+              <button className="btn btn-ghost" onClick={resetNominateModal}>
                 Cancel
               </button>
             </div>

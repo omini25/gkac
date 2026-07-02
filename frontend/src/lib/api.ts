@@ -697,6 +697,30 @@ export const api = {
     });
   },
 
+  // ─── Nomination Form Online (no file upload) ────────────────────────
+  submitNominationOnline: (
+    electionId: string,
+    positionId: string,
+    nomineeUserId: string,
+    formFields: Record<string, string>,
+    proofFile: File,
+    statement?: string
+  ) => {
+    const formData = new FormData();
+    formData.append("positionId", positionId);
+    formData.append("formType", "nomination");
+    formData.append("submissionMethod", "online");
+    formData.append("nomineeUserId", nomineeUserId);
+    formData.append("formData", JSON.stringify(formFields));
+    if (statement) formData.append("statement", statement);
+    formData.append("proofFile", proofFile);
+    return request<{ declaration: ElectionDeclaration }>(`/elections/${electionId}/declare`, {
+      method: "POST",
+      headers: {},
+      body: formData,
+    });
+  },
+
   // ─── Download uploaded form file ──────────────────────────────────────
   getFormDownloadUrl: (filename: string) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("gkac_token") : null;
@@ -735,6 +759,21 @@ export const api = {
   // Eligible voters (admin)
   getEligibleVoters: (electionId: string) =>
     request<{ voters: any[] }>(`/elections/${electionId}/eligible-voters`),
+
+  // ─── Voter Exceptions (admin) ────────────────────────────────────────────
+  getVoterExceptions: (electionId: string) =>
+    request<{ exceptions: any[] }>(`/elections/${electionId}/voter-exceptions`),
+
+  addVoterExceptions: (electionId: string, userIds: string[]) =>
+    request<{ message: string; added: number; skipped: number }>(`/elections/${electionId}/voter-exceptions`, {
+      method: "POST",
+      body: JSON.stringify({ userIds }),
+    }),
+
+  removeVoterException: (electionId: string, userId: string) =>
+    request<{ message: string }>(`/elections/${electionId}/voter-exceptions/${userId}`, {
+      method: "DELETE",
+    }),
 
   // ─── Election Posters ──────────────────────────────────────────────────────
   getPosters: (electionId?: string) => {

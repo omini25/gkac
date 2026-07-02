@@ -65,6 +65,15 @@ export default function AdminElectionsPage() {
   const [voters, setVoters] = useState<any[]>([]);
   const [votersLoading, setVotersLoading] = useState(false);
 
+  // Voter Exceptions
+  const [showExceptions, setShowExceptions] = useState<string | null>(null);
+  const [exceptions, setExceptions] = useState<any[]>([]);
+  const [exceptionsLoading, setExceptionsLoading] = useState(false);
+  const [exceptionMemberSearch, setExceptionMemberSearch] = useState("");
+  const [exceptionMemberResults, setExceptionMemberResults] = useState<any[]>([]);
+  const [exceptionSelected, setExceptionSelected] = useState<Set<string>>(new Set());
+  const [exceptionAdding, setExceptionAdding] = useState(false);
+
   // ─── Posters ────────────────────────────────────────────────────────────
   const [showPosters, setShowPosters] = useState<string | null>(null);
   const [posterElectionTitle, setPosterElectionTitle] = useState("");
@@ -93,7 +102,7 @@ export default function AdminElectionsPage() {
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
 
   // Online form data viewer (for declarations submitted via the online form)
-  const [viewFormData, setViewFormData] = useState<{ data: Record<string, string>; member: string; position: string } | null>(null);
+  const [viewFormData, setViewFormData] = useState<{ data: Record<string, string>; member: string; position: string; formType: string } | null>(null);
 
   // Expanded election row
   const [expandedElection, setExpandedElection] = useState<string | null>(null);
@@ -498,6 +507,77 @@ export default function AdminElectionsPage() {
     setVotersLoading(false);
   }
 
+  // ─── Voter Exceptions ──────────────────────────────────────────────────
+  async function openExceptions(electionId: string) {
+    setShowExceptions(electionId);
+    setExceptionsLoading(true);
+    setExceptionMemberSearch("");
+    setExceptionMemberResults([]);
+    setExceptionSelected(new Set());
+    const res = await api.getVoterExceptions(electionId);
+    if (res.data) setExceptions(res.data.exceptions);
+    else showToast(res.error || "Failed to load exceptions", "error");
+    setExceptionsLoading(false);
+  }
+
+  async function searchExceptionMembers(query: string) {
+    setExceptionMemberSearch(query);
+    if (query.length < 2) { setExceptionMemberResults([]); return; }
+    const res = await api.getMembers();
+    if (res.data) {
+      const all = res.data.members as any[];
+      const q = query.toLowerCase();
+      setExceptionMemberResults(
+        all
+          .filter((m: any) =>
+            (m.name?.toLowerCase().includes(q) ||
+             m.email?.toLowerCase().includes(q) ||
+             m.mno?.toLowerCase().includes(q)) &&
+            !exceptions.some((e) => e.user_id === m.id)
+          )
+          .slice(0, 20)
+          .map((m: any) => ({ id: m.id, name: m.name, email: m.email, mno: m.mno }))
+      );
+    }
+  }
+
+  function toggleExceptionMember(userId: string) {
+    setExceptionSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  }
+
+  async function addExceptions() {
+    if (!showExceptions || exceptionSelected.size === 0) return;
+    setExceptionAdding(true);
+    const res = await api.addVoterExceptions(showExceptions, Array.from(exceptionSelected));
+    if (res.data) {
+      showToast(res.data.message, "success");
+      setExceptionSelected(new Set());
+      setExceptionMemberSearch("");
+      setExceptionMemberResults([]);
+      openExceptions(showExceptions);
+    } else {
+      showToast(res.error || "Failed to add exceptions", "error");
+    }
+    setExceptionAdding(false);
+  }
+
+  async function removeException(userId: string) {
+    if (!showExceptions) return;
+    if (!confirm("Remove this member from the exception list?")) return;
+    const res = await api.removeVoterException(showExceptions, userId);
+    if (res.data) {
+      showToast("Member removed from exception list", "success");
+      openExceptions(showExceptions);
+    } else {
+      showToast(res.error || "Failed to remove", "error");
+    }
+  }
+
   // ─── Posters ────────────────────────────────────────────────────────────
   async function openPosters(electionId: string, electionTitle: string) {
     setShowPosters(electionId);
@@ -656,6 +736,7 @@ export default function AdminElectionsPage() {
                               <button className="dropdown-item" onClick={() => { setOpenMenuId(null); openDeclarations(el.id); }}>📄 Declarations</button>
                               <button className="dropdown-item" onClick={() => { setOpenMenuId(null); openPosters(el.id, el.title); }}>🖼️ Posters</button>
                               <button className="dropdown-item" onClick={() => { setOpenMenuId(null); openEligibleVoters(el.id); }}>👥 Voters</button>
+                              <button className="dropdown-item" onClick={() => { setOpenMenuId(null); openExceptions(el.id); }}>🚫 Exceptions</button>
                               <button className="dropdown-item" onClick={() => { setOpenMenuId(null); openResults(el.id); }}>📊 Results</button>
                               <div className="dropdown-divider" />
                               {el.status === "draft" && (
@@ -852,6 +933,7 @@ export default function AdminElectionsPage() {
                                     data: parsed,
                                     member: `${d.first_name} ${d.last_name}`,
                                     position: d.position_title,
+                                    formType: d.form_type || "declaration",
                                   });
                                 } catch {}
                               }}
@@ -1439,6 +1521,114 @@ export default function AdminElectionsPage() {
         </div>
       )}
 
+      {/* ═══ VOTER EXCEPTIONS MODAL ═══ */}
+      {showExceptions && (
+        <div className="modal-overlay open" onClick={() => { setShowExceptions(null); setExceptions([]); setExceptionMemberSearch(""); setExceptionMemberResults([]); setExceptionSelected(new Set()); }}>
+          <div className="modal" style={{ maxWidth: 650 }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => { setShowExceptions(null); setExceptions([]); setExceptionMemberSearch(""); setExceptionMemberResults([]); setExceptionSelected(new Set()); }}>✕</button>
+            <h3>🚫 Voter Exceptions</h3>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 14 }}>
+              Members on this list will be <strong>excluded</strong> from voting even if they meet all eligibility criteria (dues paid, active membership, etc.).
+            </p>
+
+            {/* Add members section */}
+            <div style={{
+              padding: 12, marginBottom: 16, borderRadius: "var(--radius-md)",
+              background: "var(--bg)", border: "1px solid var(--border)",
+            }}>
+              <strong style={{ fontSize: 14 }}>Add Members to Exception List</strong>
+              <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 4, marginBottom: 8 }}>
+                Search for members to exempt. Already-exempted members are hidden from search results.
+              </p>
+              <input
+                type="text"
+                placeholder="Search members by name, email, or membership no…"
+                value={exceptionMemberSearch}
+                onChange={(e) => searchExceptionMembers(e.target.value)}
+                style={{ width: "100%", marginBottom: exceptionMemberResults.length > 0 ? 8 : 0 }}
+              />
+              {exceptionMemberResults.length > 0 && (
+                <div style={{
+                  border: "1px solid var(--border)", borderRadius: "var(--radius-md)",
+                  maxHeight: 200, overflowY: "auto", marginBottom: 8,
+                }}>
+                  {exceptionMemberResults.map((m: any) => (
+                    <label
+                      key={m.id}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
+                        cursor: "pointer", fontSize: 13,
+                        borderBottom: "1px solid var(--border)",
+                        background: exceptionSelected.has(m.id) ? "var(--green-light)" : "transparent",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={exceptionSelected.has(m.id)}
+                        onChange={() => toggleExceptionMember(m.id)}
+                        style={{ accentColor: "var(--green)" }}
+                      />
+                      <div>
+                        <strong>{m.name}</strong>
+                        <br /><span style={{ fontSize: 11, color: "var(--muted)" }}>{m.email} · {m.mno}</span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+              <button
+                className="btn btn-accent btn-sm"
+                disabled={exceptionAdding || exceptionSelected.size === 0}
+                onClick={addExceptions}
+              >
+                {exceptionAdding ? "Adding…" : `Exempt Selected (${exceptionSelected.size})`}
+              </button>
+            </div>
+
+            {/* Current exceptions list */}
+            {exceptionsLoading ? (
+              <p style={{ textAlign: "center", color: "var(--muted)", padding: 16 }}><span className="loader-dot" /></p>
+            ) : exceptions.length === 0 ? (
+              <p style={{ color: "var(--muted)", padding: 12 }}>No members on the exception list yet.</p>
+            ) : (
+              <>
+                <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{exceptions.length} exempted member(s)</p>
+                <div style={{ overflowX: "auto", maxHeight: 350, overflowY: "auto" }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Membership No</th>
+                        <th style={{ width: 60 }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {exceptions.map((exc: any) => (
+                        <tr key={exc.id}>
+                          <td><strong>{exc.first_name} {exc.last_name}</strong></td>
+                          <td style={{ fontSize: 13, color: "var(--muted)" }}>{exc.email}</td>
+                          <td>{exc.membership_code}</td>
+                          <td>
+                            <button
+                              className="btn btn-danger btn-xs"
+                              onClick={() => removeException(exc.user_id)}
+                              title="Remove from exception list"
+                            >
+                              🗑
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ═══ ADD DECLARATION MODAL (with form type and file upload) ═══ */}
       {showAddDecl && (
         <div className="modal-overlay open" onClick={() => setShowAddDecl(false)}>
@@ -1692,48 +1882,75 @@ export default function AdminElectionsPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <button className="modal-close" onClick={() => setViewFormData(null)}>✕</button>
-            <h3>📝 Declaration of Interest — Online Form</h3>
+            <h3>{viewFormData.formType === "nomination" ? "📋 Nomination Form" : "📝 Declaration of Interest"} — Online Form</h3>
             <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
               {viewFormData.member} · {viewFormData.position}
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {[
-                { label: "1. Full Name", key: "fullName" },
-                { label: "2. Kegite Name/Title", key: "kegiteName" },
-                { label: "3. Membership Number", key: "membershipNumber" },
-                { label: "4. Office Being Sought", key: "office" },
-                { label: "5. Why do you wish to contest for this office?", key: "reason" },
-                { label: "6. What experience qualifies you for this office?", key: "experience" },
-                { label: "7. Are you a financial member of GKAC?", key: "financialMember" },
-                { label: "8. Do you have any outstanding debt or obligation to GKAC?", key: "outstandingDebt" },
-                { label: "9. Will you abide by the Constitution and Electoral Guidelines?", key: "abideByRules" },
-                { label: "10. Your phone number", key: "phone" },
-                { label: "11. Date of Birth", key: "dob" },
-                { label: "12. Permanent Address", key: "permanentAddress" },
-                { label: "13. Current Address", key: "currentAddress" },
-                { label: "14. Higher institution(s) attended with date", key: "institutions" },
-                { label: "15. Next of Kin", key: "nextOfKin" },
-                { label: "16. Name of Sponsor I", key: "sponsorI" },
-                { label: "17. Name of Sponsor II", key: "sponsorII" },
-                { label: "18. State of Origin", key: "stateOfOrigin" },
-                { label: "Signature", key: "signature" },
-                { label: "Date", key: "date" },
-              ].map((field) => {
-                const value = viewFormData.data[field.key];
-                if (!value) return null;
-                return (
-                  <div key={field.key} style={{
-                    padding: "10px 12px",
-                    borderRadius: "var(--radius-md)",
-                    background: "var(--bg)",
-                    border: "1px solid var(--border)",
-                  }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", marginBottom: 4 }}>{field.label}</div>
-                    <div style={{ fontSize: 14, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{value}</div>
-                  </div>
-                );
-              })}
+              {(() => {
+                const isNomination = viewFormData.formType === "nomination";
+                const fields = isNomination
+                  ? [
+                      { label: "Candidate Background Information", key: "_section", section: true },
+                      { label: "1. Full Name", key: "fullName" },
+                      { label: "2. Date of Birth", key: "dob" },
+                      { label: "3. Permanent Address", key: "permanentAddress" },
+                      { label: "4. Current Address", key: "currentAddress" },
+                      { label: "5. Higher Institution(s) Attended with Date", key: "institutions" },
+                      { label: "6. Next of Kin", key: "nextOfKin" },
+                      { label: "7. Name of Sponsor I", key: "sponsorI" },
+                      { label: "8. Name of Sponsor II", key: "sponsorII" },
+                      { label: "9. State of Origin", key: "stateOfOrigin" },
+                      { label: "Declaration of Eligibility", key: "_section2", section: true },
+                      { label: "Signature of Nominee", key: "signature" },
+                      { label: "Date", key: "date" },
+                    ]
+                  : [
+                      { label: "1. Full Name", key: "fullName" },
+                      { label: "2. Kegite Name/Title", key: "kegiteName" },
+                      { label: "3. Membership Number", key: "membershipNumber" },
+                      { label: "4. Office Being Sought", key: "office" },
+                      { label: "5. Why do you wish to contest for this office?", key: "reason" },
+                      { label: "6. What experience qualifies you for this office?", key: "experience" },
+                      { label: "7. Are you a financial member of GKAC?", key: "financialMember" },
+                      { label: "8. Do you have any outstanding debt or obligation to GKAC?", key: "outstandingDebt" },
+                      { label: "9. Will you abide by the Constitution and Electoral Guidelines?", key: "abideByRules" },
+                      { label: "10. Your phone number", key: "phone" },
+                      { label: "11. Date of Birth", key: "dob" },
+                      { label: "12. Permanent Address", key: "permanentAddress" },
+                      { label: "13. Current Address", key: "currentAddress" },
+                      { label: "14. Higher institution(s) attended with date", key: "institutions" },
+                      { label: "15. Next of Kin", key: "nextOfKin" },
+                      { label: "16. Name of Sponsor I", key: "sponsorI" },
+                      { label: "17. Name of Sponsor II", key: "sponsorII" },
+                      { label: "18. State of Origin", key: "stateOfOrigin" },
+                      { label: "Signature", key: "signature" },
+                      { label: "Date", key: "date" },
+                    ];
+                return fields.map((field) => {
+                  if ((field as any).section) {
+                    return (
+                      <div key={field.key} style={{ fontSize: 14, fontWeight: 700, color: "var(--accent)", marginTop: 8, marginBottom: 4 }}>
+                        {field.label}
+                      </div>
+                    );
+                  }
+                  const value = viewFormData.data[field.key];
+                  if (!value) return null;
+                  return (
+                    <div key={field.key} style={{
+                      padding: "10px 12px",
+                      borderRadius: "var(--radius-md)",
+                      background: "var(--bg)",
+                      border: "1px solid var(--border)",
+                    }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", marginBottom: 4 }}>{field.label}</div>
+                      <div style={{ fontSize: 14, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{value}</div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>
