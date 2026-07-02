@@ -305,7 +305,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Two columns: Announcements + Events */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div className="grid-2-auto">
         {/* Recent Announcements */}
         <div className="card">
           <div className="card-header">

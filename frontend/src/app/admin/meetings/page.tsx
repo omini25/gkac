@@ -357,7 +357,7 @@ export default function AdminMeetingsPage() {
                   placeholder="Meeting agenda, topics to be discussed…" />
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div className="form-row" style={{ gap: 16 }}>
                 <div className="form-group">
                   <label>Date</label>
                   <input className="form-control" type="date" value={form.meetingDate}
@@ -406,7 +406,7 @@ export default function AdminMeetingsPage() {
                   placeholder="https://zoom.us/j/… or https://meet.google.com/…" />
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div className="form-row" style={{ gap: 16 }}>
                 <div className="form-group">
                   <label>Meeting ID</label>
                   <input className="form-control" value={form.meetingId}
@@ -432,7 +432,7 @@ export default function AdminMeetingsPage() {
 
               <h4 style={{ margin: "0 0 12px" }}>Settings</h4>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div className="form-row" style={{ gap: 16 }}>
                 <div className="form-group">
                   <label>Access Type</label>
                   <select className="form-control" value={form.accessType}
@@ -511,6 +511,7 @@ export default function AdminMeetingsPage() {
               ) : attendees.length === 0 ? (
                 <p className="empty-state" style={{ padding: 20 }}>No attendees yet.</p>
               ) : (
+                <div className="table-scroll">
                 <table className="data-table">
                   <thead>
                     <tr>
@@ -531,6 +532,7 @@ export default function AdminMeetingsPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
             <div className="modal-footer">

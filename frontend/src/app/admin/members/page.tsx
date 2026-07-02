@@ -707,7 +707,7 @@ export default function AdminMembersPage() {
             </button>
             <h3>{panel.name}</h3>
             {statusBadge(panel.status)}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13, margin: "16px 0" }}>
+            <div className="grid-2-auto" style={{ gap: 12, fontSize: 13, margin: "16px 0" }}>
               <div><strong>Membership No</strong><br /><span style={{ color: "var(--muted)" }}>{panel.mno}</span></div>
               <div><strong>Chapter</strong><br /><span style={{ color: "var(--muted)" }}>{panel.lga || "—"}</span></div>
               <div><strong>Expiry</strong><br /><span style={{ color: "var(--muted)" }}>{panel.expiry ? new Date(panel.expiry).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</span></div>
@@ -735,12 +735,13 @@ export default function AdminMembersPage() {
             ) : panelPayments.length === 0 ? (
               <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>No payment records found.</p>
             ) : (
+              <div className="table-scroll">
               <table className="data-table" style={{ marginBottom: 16 }}>
                 <thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Status</th></tr></thead>
                 <tbody>
                   {panelPayments.map((p) => (
                     <tr key={p.id}>
-                      <td style={{ fontSize: 12 }}>{new Date(p.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</td>
+                      <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>{new Date(p.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</td>
                       <td style={{ fontSize: 12 }}>₦{(p.amount_kobo / 100).toLocaleString()}</td>
                       <td style={{ fontSize: 12 }}>{p.payment_type === "registration" ? "Registration" : p.payment_type === "annual_due" ? "Annual Due" : p.payment_type === "annual_developmental_fee" ? "Annual Dev. Fee" : p.payment_type === "renewal" ? "Renewal" : p.payment_type}</td>
                       <td><span className={`badge ${p.status === "confirmed" ? "badge-active" : "badge-pending"}`} style={{ fontSize: 10 }}>{p.status}</span></td>
@@ -748,9 +749,10 @@ export default function AdminMembersPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
             <h4>Dues Management</h4>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+            <div className="grid-2-auto" style={{ gap: 8, marginBottom: 16 }}>
               <div style={{
                 padding: 12, borderRadius: "var(--radius-md)", textAlign: "center",
                 background: panel.annualDuePaid ? "var(--green-light)" : "var(--bg)",
@@ -882,7 +884,7 @@ export default function AdminMembersPage() {
             <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 14 }}>
               Editing: <strong>{editTarget.name}</strong>
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div className="form-row" style={{ gap: 12 }}>
               <div className="form-group">
                 <label>First Name</label>
                 <input
@@ -928,7 +930,7 @@ export default function AdminMembersPage() {
             </div>
             <hr style={{ borderColor: "var(--border)", margin: "14px 0" }} />
             <h4 style={{ fontSize: 13, marginBottom: 10 }}>Identity Verification</h4>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div className="form-row" style={{ gap: 12 }}>
               <div className="form-group">
                 <label>NIN (11 digits)</label>
                 <input
@@ -982,7 +984,7 @@ export default function AdminMembersPage() {
             <button className="modal-close" onClick={() => setShowAdd(false)}>✕</button>
             <h3>Add New Member</h3>
             <form onSubmit={handleAdd}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div className="form-row" style={{ gap: 12 }}>
                 <div className="form-group">
                   <label>First Name *</label>
                   <input type="text" required value={addForm.firstName}
@@ -1341,7 +1343,7 @@ export default function AdminMembersPage() {
                   </div>
                 )}
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 13 }}>
+                <div className="grid-2-auto" style={{ gap: 8, fontSize: 13 }}>
                   <div><strong>First Name</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.firstName || "—"}</span></div>
                   <div><strong>Last Name</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.lastName || "—"}</span></div>
                   <div><strong>Middle Name</strong><br /><span style={{ color: "var(--muted)" }}>{ninVerifyResult.data?.middlename || "—"}</span></div>

@@ -570,7 +570,7 @@ export default function AdminPaymentsPage() {
             </div>
 
             {/* Payment Details */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, fontSize: 13, marginBottom: 14 }}>
+            <div className="grid-2-auto" style={{ gap: 10, fontSize: 13, marginBottom: 14 }}>
               <div><strong>Amount</strong><br /><span style={{ color: "var(--fg)" }}>{fmtNaira(reviewPayment.amountKobo)}</span></div>
               <div><strong>Type</strong><br /><span style={{ color: "var(--fg)" }}>{fmtPaymentType(reviewPayment.paymentType)}</span></div>
               <div><strong>Date</strong><br /><span style={{ color: "var(--fg)" }}>{fmtDate(reviewPayment.createdAt)}</span></div>

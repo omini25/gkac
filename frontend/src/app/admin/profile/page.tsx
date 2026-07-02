@@ -96,7 +96,7 @@ export default function AdminProfilePage() {
 
   return (
     <>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div className="grid-2-auto">
         {/* Profile Info */}
         <div className="card">
           <div className="card-header">
@@ -139,7 +139,7 @@ export default function AdminProfilePage() {
             <hr style={{ borderColor: "var(--border)", margin: "8px 0" }} />
 
             <div style={{ fontSize: 13, color: "var(--muted)" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div className="grid-2-auto" style={{ gap: 8 }}>
                 <div><strong>Category:</strong> {user.membershipCategory || "—"}</div>
                 <div><strong>Code:</strong> {user.membershipCode || "—"}</div>
                 <div><strong>Status:</strong> {user.applicationStatus || "—"}</div>

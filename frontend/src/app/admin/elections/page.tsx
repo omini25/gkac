@@ -1088,6 +1088,7 @@ export default function AdminElectionsPage() {
             {positions.length === 0 ? (
               <p style={{ color: "var(--muted)", fontSize: 14 }}>No positions yet. Add positions above.</p>
             ) : (
+              <div className="table-scroll">
               <table className="data-table">
                 <thead>
                   <tr><th>Title</th><th>Description</th><th>Seats</th><th>Candidates</th><th>Actions</th></tr>
@@ -1107,6 +1108,7 @@ export default function AdminElectionsPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>

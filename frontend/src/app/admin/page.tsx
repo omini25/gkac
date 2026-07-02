@@ -126,7 +126,7 @@ export default function AdminOverviewPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div className="grid-2-auto">
         {/* Quick Actions */}
         <div className="card">
           <div className="card-header">

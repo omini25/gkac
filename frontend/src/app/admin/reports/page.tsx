@@ -83,7 +83,7 @@ export default function AdminReportsPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div className="grid-2-auto">
         {/* Membership by Category */}
         <div className="card">
           <h4 style={{ marginBottom: 12 }}>Membership by Category</h4>

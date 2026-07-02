@@ -114,7 +114,7 @@ export default function BillingPage() {
       {/* Dues Status */}
       <div className="card" style={{ marginBottom: 20 }}>
         <h4 style={{ marginBottom: 12 }}>📋 Dues Status</h4>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+        <div className="grid-3-auto">
           {/* Annual Dues */}
           <div style={{
             padding: 16, borderRadius: "var(--radius-md)", textAlign: "center",
@@ -196,6 +196,7 @@ export default function BillingPage() {
         </div>
       ) : (
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
             <thead>
               <tr style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
@@ -222,6 +223,7 @@ export default function BillingPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
