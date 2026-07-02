@@ -648,8 +648,31 @@ export const api = {
     const formData = new FormData();
     formData.append("positionId", positionId);
     formData.append("formType", "declaration");
+    formData.append("submissionMethod", "upload");
     if (statement) formData.append("statement", statement);
     formData.append("formFile", formFile);
+    formData.append("proofFile", proofFile);
+    return request<{ declaration: ElectionDeclaration }>(`/elections/${electionId}/declare`, {
+      method: "POST",
+      headers: {},
+      body: formData,
+    });
+  },
+
+  // ─── Declaration of Interest Online Form (no file upload) ────────────
+  submitDeclarationOnline: (
+    electionId: string,
+    positionId: string,
+    formFields: Record<string, string>,
+    proofFile: File,
+    statement?: string
+  ) => {
+    const formData = new FormData();
+    formData.append("positionId", positionId);
+    formData.append("formType", "declaration");
+    formData.append("submissionMethod", "online");
+    formData.append("formData", JSON.stringify(formFields));
+    if (statement) formData.append("statement", statement);
     formData.append("proofFile", proofFile);
     return request<{ declaration: ElectionDeclaration }>(`/elections/${electionId}/declare`, {
       method: "POST",

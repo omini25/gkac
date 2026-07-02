@@ -32,9 +32,10 @@ const uploadForm = multer({
       "application/pdf",
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "image/jpeg", "image/png", "image/gif", "image/webp",
+      "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp",
     ];
-    if (allowed.includes(file.mimetype)) return cb(null, true);
+    // Also allow any image/* that starts with "image/"
+    if (allowed.includes(file.mimetype) || file.mimetype.startsWith("image/")) return cb(null, true);
     cb(new Error("File type not allowed. Accepted: PDF, DOC, DOCX, images."));
   },
 });
@@ -92,8 +93,12 @@ electionsRouter.get("/elections", async (_req: Request, res: Response) => {
         (SELECT COUNT(*) FROM election_positions WHERE election_id = e.id) AS positions_count,
         (SELECT COUNT(*) FROM election_votes WHERE election_id = e.id) AS total_votes,
         (SELECT COUNT(*) FROM users WHERE
+          is_admin = FALSE AND
+          is_suspended = FALSE AND
           application_status = 'approved' AND
-          membership_expires_at > NOW()
+          membership_expires_at > NOW() AND
+          annual_due_paid = TRUE AND
+          annual_developmental_fee_paid = TRUE
         ) AS eligible_voters
        FROM elections e
        ORDER BY e.created_at DESC`
@@ -206,8 +211,12 @@ electionsRouter.get("/elections/:id", async (req: Request, res: Response) => {
     const electionResult = await db.query(
       `SELECT e.*,
         (SELECT COUNT(*) FROM users WHERE
+          is_admin = FALSE AND
+          is_suspended = FALSE AND
           application_status = 'approved' AND
-          membership_expires_at > NOW()
+          membership_expires_at > NOW() AND
+          annual_due_paid = TRUE AND
+          annual_developmental_fee_paid = TRUE
         ) AS eligible_voters
        FROM elections e WHERE e.id = $1`,
       [id]
@@ -589,8 +598,9 @@ electionsRouter.get("/elections/:id/eligible-voters", async (req: Request, res: 
 // ============================================================================
 
 // ─── POST /api/elections/:id/declare ──────────────────────────────────────
-// Accepts multipart/form-data with formFile (declaration/nomination form) and
-// proofFile (proof of payment for the election fee)
+// Accepts multipart/form-data with:
+//   - Upload mode: formFile (declaration/nomination form) + proofFile
+//   - Online mode: formData (JSON string of form fields) + proofFile
 electionsRouter.post("/elections/:id/declare", uploadForm.fields([
   { name: "formFile", maxCount: 1 },
   { name: "proofFile", maxCount: 1 },
@@ -604,6 +614,8 @@ electionsRouter.post("/elections/:id/declare", uploadForm.fields([
     const positionId = req.body.positionId;
     const statement = req.body.statement;
     const formType = req.body.formType || "declaration";
+    const submissionMethod = req.body.submissionMethod || "upload"; // "upload" | "online"
+    const formData = req.body.formData; // JSON string of online form fields
 
     if (!positionId) {
       return res.status(400).json({ error: "Position ID is required." });
@@ -660,13 +672,32 @@ electionsRouter.post("/elections/:id/declare", uploadForm.fields([
       return res.status(400).json({ error: "Proof of payment is required. Please upload your payment receipt." });
     }
 
+    // In upload mode, formFile is required
+    if (submissionMethod !== "online" && !formFilePath) {
+      return res.status(400).json({ error: "Form file is required. Please upload your completed declaration form." });
+    }
+
+    // Validate form data JSON for online submissions
+    let formDataValidated: string | null = null;
+    if (submissionMethod === "online") {
+      if (!formData) {
+        return res.status(400).json({ error: "Form data is required for online submissions." });
+      }
+      try {
+        JSON.parse(formData);
+        formDataValidated = formData;
+      } catch {
+        return res.status(400).json({ error: "Invalid form data format." });
+      }
+    }
+
     // For nomination forms, get the nominee user ID
     const nomineeUserId = req.body.nomineeUserId || null;
 
     const result = await db.query(
-      `INSERT INTO election_declarations (election_id, position_id, user_id, statement, form_type, form_file_path, proof_file_path, nominee_user_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [id, positionId, auth.userId, statement?.trim() || null, formType, formFilePath, proofFilePath, nomineeUserId]
+      `INSERT INTO election_declarations (election_id, position_id, user_id, statement, form_type, form_file_path, proof_file_path, nominee_user_id, form_data_json)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [id, positionId, auth.userId, statement?.trim() || null, formType, formFilePath, proofFilePath, nomineeUserId, formDataValidated]
     );
 
     return res.status(201).json({ declaration: result.rows[0] });
@@ -856,10 +887,10 @@ electionsRouter.get("/elections/forms/:filename", async (req: Request, res: Resp
       return res.status(404).json({ error: "File not found." });
     }
 
-    // Look up the declaration to verify access
+    // Look up the declaration to verify access (match either form_file or proof_file)
     const db = getDbPool();
     const declResult = await db.query(
-      `SELECT d.* FROM election_declarations d WHERE d.form_file_path = $1`,
+      `SELECT d.* FROM election_declarations d WHERE d.form_file_path = $1 OR d.proof_file_path = $1`,
       [filename]
     );
 
@@ -881,7 +912,8 @@ electionsRouter.get("/elections/forms/:filename", async (req: Request, res: Resp
       return res.status(403).json({ error: "Access denied." });
     }
 
-    const originalName = `${declaration.form_type}-form-${declaration.id}${path.extname(filename)}`;
+    const fileType = filename === declaration.proof_file_path ? "proof" : `${declaration.form_type}-form`;
+    const originalName = `${fileType}-${declaration.id}${path.extname(filename)}`;
     res.download(filePath, originalName);
   } catch (err) {
     console.error("Error downloading form file:", err);

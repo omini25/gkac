@@ -92,6 +92,9 @@ export default function AdminElectionsPage() {
   // Lightbox
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
 
+  // Online form data viewer (for declarations submitted via the online form)
+  const [viewFormData, setViewFormData] = useState<{ data: Record<string, string>; member: string; position: string } | null>(null);
+
   // Expanded election row
   const [expandedElection, setExpandedElection] = useState<string | null>(null);
 
@@ -690,6 +693,7 @@ export default function AdminElectionsPage() {
                                 </div>
                               )}
                               {[
+                                { label: "Eligible Voters", value: el.eligible_voters != null ? `${el.eligible_voters} members (dues-paid)` : null },
                                 { label: "Declaration Period", value: el.declaration_start && el.declaration_end ? `${formatDate(el.declaration_start)} – ${formatDate(el.declaration_end)}` : null },
                                 { label: "Nomination Period", value: el.nomination_start && el.nomination_end ? `${formatDate(el.nomination_start)} – ${formatDate(el.nomination_end)}` : null },
                                 { label: "Eligible Voters Released", value: el.eligible_voters_release_date ? formatDate(el.eligible_voters_release_date) : null },
@@ -838,6 +842,23 @@ export default function AdminElectionsPage() {
                             >
                               📄 View
                             </a>
+                          ) : (d as any).form_data_json ? (
+                            <button
+                              className="btn btn-outline btn-xs"
+                              onClick={() => {
+                                try {
+                                  const parsed = JSON.parse((d as any).form_data_json);
+                                  setViewFormData({
+                                    data: parsed,
+                                    member: `${d.first_name} ${d.last_name}`,
+                                    position: d.position_title,
+                                  });
+                                } catch {}
+                              }}
+                              title="View online form submission"
+                            >
+                              📝 View Form
+                            </button>
                           ) : (
                             <span style={{ fontSize: 12, color: "var(--muted)" }}>—</span>
                           )}
@@ -1658,6 +1679,62 @@ export default function AdminElectionsPage() {
                 objectFit: "contain",
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ONLINE FORM DATA VIEWER ═══ */}
+      {viewFormData && (
+        <div className="modal-overlay open" onClick={() => setViewFormData(null)}>
+          <div
+            className="modal"
+            style={{ maxWidth: 600, width: "calc(100% - 32px)", margin: "16px auto", maxHeight: "calc(100vh - 32px)", overflowY: "auto" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button className="modal-close" onClick={() => setViewFormData(null)}>✕</button>
+            <h3>📝 Declaration of Interest — Online Form</h3>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
+              {viewFormData.member} · {viewFormData.position}
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {[
+                { label: "1. Full Name", key: "fullName" },
+                { label: "2. Kegite Name/Title", key: "kegiteName" },
+                { label: "3. Membership Number", key: "membershipNumber" },
+                { label: "4. Office Being Sought", key: "office" },
+                { label: "5. Why do you wish to contest for this office?", key: "reason" },
+                { label: "6. What experience qualifies you for this office?", key: "experience" },
+                { label: "7. Are you a financial member of GKAC?", key: "financialMember" },
+                { label: "8. Do you have any outstanding debt or obligation to GKAC?", key: "outstandingDebt" },
+                { label: "9. Will you abide by the Constitution and Electoral Guidelines?", key: "abideByRules" },
+                { label: "10. Your phone number", key: "phone" },
+                { label: "11. Date of Birth", key: "dob" },
+                { label: "12. Permanent Address", key: "permanentAddress" },
+                { label: "13. Current Address", key: "currentAddress" },
+                { label: "14. Higher institution(s) attended with date", key: "institutions" },
+                { label: "15. Next of Kin", key: "nextOfKin" },
+                { label: "16. Name of Sponsor I", key: "sponsorI" },
+                { label: "17. Name of Sponsor II", key: "sponsorII" },
+                { label: "18. State of Origin", key: "stateOfOrigin" },
+                { label: "Signature", key: "signature" },
+                { label: "Date", key: "date" },
+              ].map((field) => {
+                const value = viewFormData.data[field.key];
+                if (!value) return null;
+                return (
+                  <div key={field.key} style={{
+                    padding: "10px 12px",
+                    borderRadius: "var(--radius-md)",
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
+                  }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", marginBottom: 4 }}>{field.label}</div>
+                    <div style={{ fontSize: 14, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{value}</div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

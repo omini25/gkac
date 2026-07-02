@@ -28,6 +28,29 @@ export default function ElectionsPage() {
   const [declareStatement, setDeclareStatement] = useState("");
   const [declareFormFile, setDeclareFormFile] = useState<File | null>(null);
   const [declareProofFile, setDeclareProofFile] = useState<File | null>(null);
+  const [declareMode, setDeclareMode] = useState<"online" | "upload">("online");
+  const [declareFormFields, setDeclareFormFields] = useState({
+    fullName: "",
+    kegiteName: "",
+    membershipNumber: "",
+    office: "",
+    reason: "",
+    experience: "",
+    financialMember: "",
+    outstandingDebt: "",
+    abideByRules: "",
+    phone: "",
+    dob: "",
+    permanentAddress: "",
+    currentAddress: "",
+    institutions: "",
+    nextOfKin: "",
+    sponsorI: "",
+    sponsorII: "",
+    stateOfOrigin: "",
+    signature: "",
+    date: "",
+  });
   const [declarePhotoFile, setDeclarePhotoFile] = useState<File | null>(null);
   const [declaring, setDeclaring] = useState(false);
 
@@ -54,6 +77,22 @@ export default function ElectionsPage() {
   const showToast = useCallback((msg: string, type: string) => {
     setToast({ msg, type });
     setTimeout(() => setToast({ msg: "", type: "" }), 3500);
+  }, []);
+
+  const resetDeclareModal = useCallback(() => {
+    setDeclareElection(null);
+    setDeclarePositionId("");
+    setDeclareStatement("");
+    setDeclareFormFile(null);
+    setDeclareProofFile(null);
+    setDeclareMode("online");
+    setDeclareFormFields({
+      fullName: "", kegiteName: "", membershipNumber: "", office: "",
+      reason: "", experience: "", financialMember: "", outstandingDebt: "",
+      abideByRules: "", phone: "", dob: "", permanentAddress: "",
+      currentAddress: "", institutions: "", nextOfKin: "", sponsorI: "",
+      sponsorII: "", stateOfOrigin: "", signature: "", date: "",
+    });
   }, []);
 
   const loadData = useCallback(async () => {
@@ -114,8 +153,76 @@ export default function ElectionsPage() {
   }
 
   // ─── Declare Interest (with form upload + payment proof) ────────────────
+  function makeDeclarationFileForDownload(fields: typeof declareFormFields, electionTitle: string) {
+    const content = `DECLARATION OF INTEREST\n\nElection: ${electionTitle}\n\nGENERAL & CANDIDATE INFORMATION\n1. Full Name: ${fields.fullName}\n2. Kegite Name/Title: ${fields.kegiteName}\n3. Membership Number: ${fields.membershipNumber}\n4. Office Being Sought: ${fields.office}\n5. Why do you wish to contest for this office?: ${fields.reason}\n6. What experience qualifies you for this office?: ${fields.experience}\n\nCLUB QUESTIONNAIRE\n7. Are you a financial member of GKAC?: ${fields.financialMember}\n8. Do you have any outstanding debt or obligation to GKAC?: ${fields.outstandingDebt}\n9. Will you abide by the Constitution and Electoral Guidelines?: ${fields.abideByRules}\n\nCONTACT & BACKGROUND DETAILS\n10. Your phone number: ${fields.phone}\n11. Date of Birth: ${fields.dob}\n12. Permanent Address: ${fields.permanentAddress}\n13. Current Address: ${fields.currentAddress}\n14. Higher institution(s) attended with date: ${fields.institutions}\n15. Next of Kin: ${fields.nextOfKin}\n16. Name of Sponsor I: ${fields.sponsorI}\n17. Name of Sponsor II: ${fields.sponsorII}\n18. State of Origin: ${fields.stateOfOrigin}\n\nSIGN-OFF\nSignature: ${fields.signature}\nDate: ${fields.date}\n`;
+    return new File([content], `Declaration-of-Interest-${electionTitle.replace(/\s+/g, "_") || "form"}.txt`, { type: "text/plain" });
+  }
+
   async function submitDeclaration() {
     if (!declareElection || !declarePositionId) return;
+
+    if (declareMode === "online") {
+      const requiredFields = [
+        "fullName",
+        "kegiteName",
+        "membershipNumber",
+        "office",
+        "reason",
+        "experience",
+        "financialMember",
+        "outstandingDebt",
+        "abideByRules",
+        "phone",
+        "dob",
+        "permanentAddress",
+        "currentAddress",
+        "nextOfKin",
+        "sponsorI",
+        "sponsorII",
+        "stateOfOrigin",
+        "signature",
+        "date",
+      ] as const;
+      const missing = requiredFields.find((key) => !declareFormFields[key]);
+      if (missing) {
+        showToast("Please complete all online declaration fields before submitting.", "error");
+        return;
+      }
+      if (!declareProofFile) {
+        showToast("Please upload your proof of payment.", "error");
+        return;
+      }
+      setDeclaring(true);
+      const res = await api.submitDeclarationOnline(
+        declareElection.id,
+        declarePositionId,
+        declareFormFields,
+        declareProofFile,
+        declareStatement || undefined
+      );
+      if (res.data) {
+        showToast("Declaration form submitted! Awaiting admin approval.", "success");
+        setDeclareElection(null);
+        setDeclarePositionId("");
+        setDeclareStatement("");
+        setDeclareFormFields({
+          fullName: "", kegiteName: "", membershipNumber: "", office: "",
+          reason: "", experience: "", financialMember: "", outstandingDebt: "",
+          abideByRules: "", phone: "", dob: "", permanentAddress: "",
+          currentAddress: "", institutions: "", nextOfKin: "", sponsorI: "",
+          sponsorII: "", stateOfOrigin: "", signature: "", date: "",
+        });
+        setDeclareFormFile(null);
+        setDeclareProofFile(null);
+        await loadVoteState(declareElection.id);
+      } else {
+        showToast(res.error || "Failed to submit declaration", "error");
+      }
+      setDeclaring(false);
+      return;
+    }
+
+    // Upload mode (requires form file)
     if (!declareFormFile) {
       showToast("Please upload your completed declaration form.", "error");
       return;
@@ -563,13 +670,30 @@ export default function ElectionsPage() {
 
       {/* ═══ DECLARE INTEREST MODAL (with form upload + payment proof) ═══ */}
       {declareElection && (
-        <div className="modal-overlay open" onClick={() => { setDeclareElection(null); setDeclarePositionId(""); setDeclareStatement(""); setDeclareFormFile(null); setDeclareProofFile(null); }}>
+        <div className="modal-overlay open" onClick={() => { resetDeclareModal(); }}>
           <div className="modal" style={{ maxWidth: 550, width: "calc(100% - 32px)", margin: "16px auto", maxHeight: "calc(100vh - 32px)", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => { setDeclareElection(null); setDeclarePositionId(""); setDeclareStatement(""); setDeclareFormFile(null); setDeclareProofFile(null); }}>✕</button>
+            <button className="modal-close" onClick={() => { resetDeclareModal(); }}>✕</button>
             <h3>📝 Declaration of Interest</h3>
             <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
-              {declareElection.title} — Download the form, fill it out, and upload it.
+              {declareElection.title} — Complete the declaration online or download the form and upload the filled copy.
             </p>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+              <button
+                className={`btn btn-sm${declareMode === "online" ? " btn-accent" : " btn-outline"}`}
+                onClick={() => setDeclareMode("online")}
+                type="button"
+              >
+                Online Form
+              </button>
+              <button
+                className={`btn btn-sm${declareMode === "upload" ? " btn-accent" : " btn-outline"}`}
+                onClick={() => setDeclareMode("upload")}
+                type="button"
+              >
+                Download & Upload
+              </button>
+            </div>
 
             {/* Instructions */}
             <div style={{
@@ -579,13 +703,24 @@ export default function ElectionsPage() {
             }}>
               <strong>How it works:</strong>
               <ol style={{ margin: "8px 0 0", paddingLeft: 20 }}>
-                <li>Select the position you wish to contest</li>
-                <li><strong>Download</strong> the Declaration of Interest form below</li>
-                <li>Fill out the form (print &amp; sign or fill digitally)</li>
-                <li><strong>Upload</strong> the completed form below</li>
+                {declareMode === "online" ? (
+                  <>
+                    <li>Fill out the declaration fields below</li>
+                    <li>Download the completed declaration file if you want a copy</li>
+                    <li>Upload the completed file or submit directly</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Select the position you wish to contest</li>
+                    <li><strong>Download</strong> the blank Declaration of Interest form below</li>
+                    <li>Fill out the form</li>
+                    <li><strong>Upload</strong> the completed form below</li>
+                  </>
+                )}
+                <li>Upload your proof of payment</li>
                 <li>Submit — admin will review and respond</li>
               </ol>
-              <div style={{ marginTop: 10 }}>
+              <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <a
                   href="/forms/expression of intrest.pdf"
                   className="btn btn-outline btn-sm"
@@ -593,8 +728,29 @@ export default function ElectionsPage() {
                   rel="noopener noreferrer"
                   download
                 >
-                  📄 Download Declaration of Interest Form
+                  📄 Download Blank Declaration Form
                 </a>
+                {declareMode === "online" && (
+                  <button
+                    className="btn btn-sm btn-accent"
+                    type="button"
+                    onClick={() => {
+                      if (!declareElection) return;
+                      const file = makeDeclarationFileForDownload(declareFormFields, declareElection.title);
+                      const url = URL.createObjectURL(file);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.download = file.name;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                      showToast("Declaration form downloaded for your records.", "success");
+                    }}
+                  >
+                    📥 Download Completed File
+                  </button>
+                )}
               </div>
             </div>
 
@@ -616,6 +772,186 @@ export default function ElectionsPage() {
               </select>
             </div>
 
+            {declareMode === "online" && (
+              <div style={{ marginBottom: 16 }}>
+                <h4 style={{ marginBottom: 10, fontSize: 15 }}>Online Declaration Form</h4>
+                <div className="form-group">
+                  <label>1. Full Name</label>
+                  <input
+                    value={declareFormFields.fullName}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, fullName: e.target.value }))}
+                    placeholder="Your full name"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>2. Kegite Name/Title</label>
+                  <input
+                    value={declareFormFields.kegiteName}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, kegiteName: e.target.value }))}
+                    placeholder="Your kegite name or title"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>3. Membership Number</label>
+                  <input
+                    value={declareFormFields.membershipNumber}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, membershipNumber: e.target.value }))}
+                    placeholder="Your membership number"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>4. Office Being Sought</label>
+                  <input
+                    value={declareFormFields.office}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, office: e.target.value }))}
+                    placeholder="The office you are contesting for"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>5. Why do you wish to contest for this office?</label>
+                  <textarea
+                    rows={3}
+                    value={declareFormFields.reason}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, reason: e.target.value }))}
+                    placeholder="Explain your motivation"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>6. What experience qualifies you for this office?</label>
+                  <textarea
+                    rows={3}
+                    value={declareFormFields.experience}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, experience: e.target.value }))}
+                    placeholder="Describe your qualifications and experience"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>7. Are you a financial member of GKAC?</label>
+                  <select
+                    value={declareFormFields.financialMember}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, financialMember: e.target.value }))}
+                  >
+                    <option value="">— Select —</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>8. Do you have any outstanding debt or obligation to GKAC?</label>
+                  <select
+                    value={declareFormFields.outstandingDebt}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, outstandingDebt: e.target.value }))}
+                  >
+                    <option value="">— Select —</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>9. Will you abide by the Constitution and Electoral Guidelines?</label>
+                  <select
+                    value={declareFormFields.abideByRules}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, abideByRules: e.target.value }))}
+                  >
+                    <option value="">— Select —</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>10. Your phone number</label>
+                  <input
+                    value={declareFormFields.phone}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, phone: e.target.value }))}
+                    placeholder="Phone number"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>11. Date of Birth</label>
+                  <input
+                    type="date"
+                    value={declareFormFields.dob}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, dob: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>12. Permanent Address</label>
+                  <textarea
+                    rows={2}
+                    value={declareFormFields.permanentAddress}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, permanentAddress: e.target.value }))}
+                    placeholder="Your permanent address"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>13. Current Address</label>
+                  <textarea
+                    rows={2}
+                    value={declareFormFields.currentAddress}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, currentAddress: e.target.value }))}
+                    placeholder="Your current address"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>14. Higher institution(s) attended with date</label>
+                  <textarea
+                    rows={2}
+                    value={declareFormFields.institutions}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, institutions: e.target.value }))}
+                    placeholder="Institutions attended with dates"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>15. Next of Kin</label>
+                  <input
+                    value={declareFormFields.nextOfKin}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, nextOfKin: e.target.value }))}
+                    placeholder="Name of next of kin"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>16. Name of Sponsor I</label>
+                  <input
+                    value={declareFormFields.sponsorI}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, sponsorI: e.target.value }))}
+                    placeholder="Sponsor I"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>17. Name of Sponsor II</label>
+                  <input
+                    value={declareFormFields.sponsorII}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, sponsorII: e.target.value }))}
+                    placeholder="Sponsor II"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>18. State of Origin</label>
+                  <input
+                    value={declareFormFields.stateOfOrigin}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, stateOfOrigin: e.target.value }))}
+                    placeholder="State of Origin"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Signature</label>
+                  <input
+                    value={declareFormFields.signature}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, signature: e.target.value }))}
+                    placeholder="Type your signature"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Date</label>
+                  <input
+                    type="date"
+                    value={declareFormFields.date}
+                    onChange={(e) => setDeclareFormFields((prev) => ({ ...prev, date: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="form-group">
               <label>Personal Statement (optional)</label>
               <textarea
@@ -626,7 +962,8 @@ export default function ElectionsPage() {
               />
             </div>
 
-            {/* File Upload */}
+            {/* File Upload — only for download & upload mode */}
+            {declareMode !== "online" && (
             <div className="form-group">
               <label>Upload Completed Form *</label>
               <div style={{
@@ -680,6 +1017,7 @@ export default function ElectionsPage() {
                 />
               </div>
             </div>
+            )}
 
             {/* 💳 Payment Info */}
             <div style={{
@@ -760,11 +1098,11 @@ export default function ElectionsPage() {
                 className="btn btn-accent"
                 style={{ flex: 1, minWidth: 140 }}
                 onClick={submitDeclaration}
-                disabled={declaring || !declarePositionId || !declareFormFile || !declareProofFile}
+                disabled={declaring || !declarePositionId || (declareMode !== "online" && !declareFormFile) || !declareProofFile}
               >
                 {declaring ? "Submitting…" : "Submit Declaration"}
               </button>
-              <button className="btn btn-ghost" onClick={() => { setDeclareElection(null); setDeclarePositionId(""); setDeclareStatement(""); setDeclareFormFile(null); setDeclareProofFile(null); }}>
+              <button className="btn btn-ghost" onClick={resetDeclareModal}>
                 Cancel
               </button>
             </div>
