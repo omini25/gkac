@@ -347,13 +347,11 @@ export default function AdminPaymentsPage() {
                     <td style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--muted)" }}>{p.reference}</td>
                     <td>{statusBadge(p.status)}</td>
                     <td className="actions">
-                      {p.proofUrl || p.status === "awaiting_verification" ? (
+                      {p.status === "pending" || p.status === "awaiting_verification" ? (
                         <button className="btn btn-ghost btn-xs" onClick={() => setReviewPayment(p)}
                           style={{ textDecoration: "none" }}>
-                          {(p.status === "pending" || p.status === "awaiting_verification") ? "🔍 Review" : "👁 View"}
+                          🔍 Review{p.status === "pending" && !p.proofUrl ? " (No Proof)" : ""}
                         </button>
-                      ) : p.status === "pending" ? (
-                        <span style={{ fontSize: 11, color: "var(--muted)" }}>No proof</span>
                       ) : (
                         <button className="btn btn-ghost btn-xs" onClick={() => setReviewPayment(p)}>
                           👁 View
@@ -584,7 +582,7 @@ export default function AdminPaymentsPage() {
             </div>
 
             {/* Receipt / Proof Image */}
-            {reviewPayment.proofUrl && (
+            {reviewPayment.proofUrl ? (
               <div style={{ marginBottom: 14 }}>
                 <strong style={{ fontSize: 13, display: "block", marginBottom: 6 }}>Uploaded Receipt</strong>
                 <img
@@ -607,6 +605,18 @@ export default function AdminPaymentsPage() {
                 >
                   Open in new tab ↗
                 </a>
+              </div>
+            ) : (
+              <div style={{
+                marginBottom: 14, padding: 12,
+                background: "#fef9c3", border: "1px solid #facc15",
+                borderRadius: 8, fontSize: 13,
+              }}>
+                <strong>⚠️ No proof of payment uploaded</strong>
+                <p style={{ margin: "4px 0 0", color: "#92400e" }}>
+                  This payment was created without a receipt. You can still confirm it if you have verified
+                  the payment through other means (e.g., bank statement or direct confirmation).
+                </p>
               </div>
             )}
 
