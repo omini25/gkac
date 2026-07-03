@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { api, validateFileSize, type Election, type ElectionDetail, type ElectionPosition, type ElectionDeclaration, type ElectionResults } from "@/lib/api";
+import jsPDF from "jspdf";
 
 export default function AdminElectionsPage() {
   const [elections, setElections] = useState<Election[]>([]);
@@ -632,6 +633,127 @@ export default function AdminElectionsPage() {
   function formatDate(d: string | null) {
     if (!d) return "—";
     return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  }
+
+  // ─── Download form data as PDF ──────────────────────────────────────────
+  function downloadFormPdf(data: Record<string, string>, member: string, position: string, formType: string) {
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 16;
+    let y = 20;
+
+    // Title
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    const title = formType === "nomination" ? "Nomination Form" : "Declaration of Interest";
+    doc.text(title, pageWidth / 2, y, { align: "center" });
+    y += 8;
+
+    // Subtitle
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Member: ${member}`, pageWidth / 2, y, { align: "center" });
+    y += 5;
+    doc.text(`Position: ${position}`, pageWidth / 2, y, { align: "center" });
+    y += 5;
+    doc.text(`Date: ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`, pageWidth / 2, y, { align: "center" });
+    y += 10;
+
+    // Separator line
+    doc.setDrawColor(200);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    // Fields
+    const isNomination = formType === "nomination";
+    const fields = isNomination
+      ? [
+          { label: "Candidate Background Information", key: "_section", section: true },
+          { label: "1. Full Name", key: "fullName" },
+          { label: "2. Date of Birth", key: "dob" },
+          { label: "3. Permanent Address", key: "permanentAddress" },
+          { label: "4. Current Address", key: "currentAddress" },
+          { label: "5. Higher Institution(s) Attended with Date", key: "institutions" },
+          { label: "6. Next of Kin", key: "nextOfKin" },
+          { label: "7. Name of Sponsor I", key: "sponsorI" },
+          { label: "8. Name of Sponsor II", key: "sponsorII" },
+          { label: "9. State of Origin", key: "stateOfOrigin" },
+          { label: "Declaration of Eligibility", key: "_section2", section: true },
+          { label: "Signature of Nominee", key: "signature" },
+          { label: "Date", key: "date" },
+        ]
+      : [
+          { label: "1. Full Name", key: "fullName" },
+          { label: "2. Kegite Name/Title", key: "kegiteName" },
+          { label: "3. Membership Number", key: "membershipNumber" },
+          { label: "4. Office Being Sought", key: "office" },
+          { label: "5. Why do you wish to contest for this office?", key: "reason" },
+          { label: "6. What experience qualifies you for this office?", key: "experience" },
+          { label: "7. Are you a financial member of GKAC?", key: "financialMember" },
+          { label: "8. Do you have any outstanding debt or obligation to GKAC?", key: "outstandingDebt" },
+          { label: "9. Will you abide by the Constitution and Electoral Guidelines?", key: "abideByRules" },
+          { label: "10. Your phone number", key: "phone" },
+          { label: "11. Date of Birth", key: "dob" },
+          { label: "12. Permanent Address", key: "permanentAddress" },
+          { label: "13. Current Address", key: "currentAddress" },
+          { label: "14. Higher institution(s) attended with date", key: "institutions" },
+          { label: "15. Next of Kin", key: "nextOfKin" },
+          { label: "16. Name of Sponsor I", key: "sponsorI" },
+          { label: "17. Name of Sponsor II", key: "sponsorII" },
+          { label: "18. State of Origin", key: "stateOfOrigin" },
+          { label: "Signature", key: "signature" },
+          { label: "Date", key: "date" },
+        ];
+
+    for (const field of fields) {
+      if ((field as any).section) {
+        // Check if we need a new page
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(13);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(41, 128, 185);
+        y += 4;
+        doc.text(field.label, margin, y);
+        y += 7;
+        continue;
+      }
+
+      const value = data[field.key];
+      if (!value) continue;
+
+      // Check if we need a new page
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
+
+      // Label
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(100);
+      doc.text(field.label, margin, y);
+      y += 4;
+
+      // Value
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(30);
+
+      // Handle multi-line text
+      const lines = doc.splitTextToSize(value, pageWidth - margin * 2);
+      doc.text(lines, margin, y);
+      y += lines.length * 5 + 4;
+    }
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text("Generated from GKAC Admin Portal", pageWidth / 2, 290, { align: "center" });
+
+    doc.save(`${formType === "nomination" ? "nomination-form" : "declaration-form"}-${member.replace(/\s+/g, "-").toLowerCase()}.pdf`);
   }
 
   // ─── Render ──────────────────────────────────────────────────────────────
@@ -1884,7 +2006,16 @@ export default function AdminElectionsPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <button className="modal-close" onClick={() => setViewFormData(null)}>✕</button>
-            <h3>{viewFormData.formType === "nomination" ? "📋 Nomination Form" : "📝 Declaration of Interest"} — Online Form</h3>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <h3 style={{ margin: 0 }}>{viewFormData.formType === "nomination" ? "📋 Nomination Form" : "📝 Declaration of Interest"} — Online Form</h3>
+              <button
+                className="btn btn-accent btn-sm"
+                onClick={() => downloadFormPdf(viewFormData.data, viewFormData.member, viewFormData.position, viewFormData.formType)}
+                title="Download as PDF"
+              >
+                📄 Download PDF
+              </button>
+            </div>
             <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
               {viewFormData.member} · {viewFormData.position}
             </p>

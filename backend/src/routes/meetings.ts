@@ -40,6 +40,27 @@ async function requireAdmin(auth: TokenPayload, res: Response): Promise<boolean>
 // MEETINGS CRUD
 // ============================================================================
 
+// ─── Auto-complete past active meetings ──────────────────────────────────
+// If a meeting's scheduled date (+ time) has passed, automatically transition
+// it from "active" to "completed" so it no longer shows as "Live Now".
+async function autoCompleteMeetings(): Promise<void> {
+  try {
+    const db = getDbPool();
+    await db.query(
+      `UPDATE meetings
+       SET status = 'completed'
+       WHERE status = 'active'
+         AND meeting_date IS NOT NULL
+         AND (
+           meeting_date < CURRENT_DATE
+           OR (meeting_date = CURRENT_DATE AND meeting_time IS NOT NULL AND meeting_time <= CURRENT_TIME)
+         )`
+    );
+  } catch (err) {
+    console.error("Error auto-completing meetings:", err);
+  }
+}
+
 // ============================================================================
 // MEETING EVENTS (return meetings formatted as calendar events for the events page)
 // ============================================================================
@@ -52,6 +73,7 @@ async function requireAdmin(auth: TokenPayload, res: Response): Promise<boolean>
 // "events" as an :id parameter.
 meetingsRouter.get("/meetings/events", async (_req: Request, res: Response) => {
   try {
+    await autoCompleteMeetings();
     const db = getDbPool();
     const result = await db.query(
       `SELECT id, title, description, meeting_date, meeting_time, timezone,
@@ -102,6 +124,7 @@ meetingsRouter.get("/meetings/events", async (_req: Request, res: Response) => {
 // Public listing — shows upcoming/active for anyone, all for admin
 meetingsRouter.get("/meetings", async (req: Request, res: Response) => {
   try {
+    await autoCompleteMeetings();
     const db = getDbPool();
 
     // Silently authenticate — no error response if missing/invalid token
@@ -381,6 +404,9 @@ meetingsRouter.post("/meetings/:id/attend", async (req: Request, res: Response) 
     const meeting = meetingResult.rows[0];
     if (meeting.status === "cancelled") {
       return res.status(400).json({ error: "This meeting has been cancelled." });
+    }
+    if (meeting.status === "completed") {
+      return res.status(400).json({ error: "This meeting has already ended." });
     }
 
     // Try to authenticate
