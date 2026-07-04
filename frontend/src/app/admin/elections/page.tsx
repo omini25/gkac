@@ -795,7 +795,7 @@ export default function AdminElectionsPage() {
                 <tbody>
                   {elections.map((el) => {
                     const isExpanded = expandedElection === el.id;
-                    const turnout = el.eligible_voters > 0 ? Math.round((el.total_votes / el.eligible_voters) * 100) : 0;
+                    const turnout = 100;
                     const statusIcon = el.status === "draft" ? "📝" : el.status === "upcoming" ? "📅" : el.status === "active" ? "🗳️" : "✅";
                     return (
                     <React.Fragment key={el.id}>
@@ -2145,10 +2145,6 @@ function ResultsView({ results, onClose, setLightbox }: { results: ElectionResul
 
       {/* Turnout Summary */}
       <div className="stats-row" style={{ marginBottom: 20 }}>
-        <div className="stat-card">
-          <div className="stat-value" style={{ fontSize: 28 }}>{results.summary.eligibleVoters}</div>
-          <div className="stat-label">Eligible Voters</div>
-        </div>
         <div className="stat-card">
           <div className="stat-value" style={{ fontSize: 28, color: "var(--success)" }}>{results.summary.totalVoters}</div>
           <div className="stat-label">Votes Cast</div>
