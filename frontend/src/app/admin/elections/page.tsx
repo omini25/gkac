@@ -2163,7 +2163,7 @@ function ResultsView({ results, onClose, setLightbox }: { results: ElectionResul
     y += 6;
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`Votes Cast: ${results.summary.totalVoters}`, margin + 4, y);
+    doc.text(`Most Votes Cast: ${results.summary.totalVoters}`, margin + 4, y);
     y += 5;
     doc.text(`Turnout: ${results.summary.turnout}%`, margin + 4, y);
     y += 10;
@@ -2265,7 +2265,7 @@ function ResultsView({ results, onClose, setLightbox }: { results: ElectionResul
       <div className="stats-row" style={{ marginBottom: 20 }}>
         <div className="stat-card">
           <div className="stat-value" style={{ fontSize: 28, color: "var(--success)" }}>{results.summary.totalVoters}</div>
-          <div className="stat-label">Votes Cast</div>
+          <div className="stat-label">Most Votes Cast</div>
         </div>
         <div className="stat-card">
           <div className="stat-value" style={{ fontSize: 28 }}>{results.summary.turnout}%</div>
