@@ -2469,83 +2469,141 @@ function ResultsView({ results, onClose, setLightbox }: { results: ElectionResul
       {/* ═══ VOTERS MODAL ═══ */}
       {showVotersFor && (
         <div className="modal-overlay open" onClick={() => { setShowVotersFor(null); setCandidateVoters([]); }}>
-          <div className="modal" style={{ maxWidth: 650, maxHeight: "80vh" }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 800, width: "95%" }} onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => { setShowVotersFor(null); setCandidateVoters([]); }}>✕</button>
-            <h3 style={{ marginBottom: 4 }}>👥 Voters</h3>
-            <p style={{ fontSize: 14, color: "var(--muted)", marginBottom: 16 }}>
-              <strong>{showVotersFor.candidateName}</strong> — {showVotersFor.positionTitle}
-            </p>
+
+            {/* Header Card */}
+            <div style={{
+              background: "linear-gradient(135deg, var(--green-dark), #1a5a3a)",
+              borderRadius: "var(--radius-lg)",
+              padding: "20px 24px",
+              marginBottom: 20,
+              color: "#fff",
+            }}>
+              <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>👥 Voters</h3>
+              <p style={{ margin: "6px 0 0", fontSize: 14, opacity: 0.85 }}>
+                <strong style={{ fontWeight: 600 }}>{showVotersFor.candidateName}</strong>
+                <span style={{ margin: "0 8px", opacity: 0.5 }}>—</span>
+                {showVotersFor.positionTitle}
+              </p>
+            </div>
 
             {candidateVotersLoading ? (
-              <p style={{ textAlign: "center", color: "var(--muted)", padding: 20 }}><span className="loader-dot" /></p>
+              <p style={{ textAlign: "center", color: "var(--muted)", padding: 40 }}><span className="loader-dot" /></p>
             ) : candidateVoters.length === 0 ? (
-              <div style={{ textAlign: "center", padding: 40, color: "var(--muted)" }}>
-                <span style={{ fontSize: 48 }}>📭</span>
-                <p style={{ marginTop: 12, fontWeight: 600 }}>No votes yet</p>
-                <p style={{ fontSize: 13 }}>This candidate has not received any votes.</p>
+              <div style={{ textAlign: "center", padding: "60px 40px", color: "var(--muted)" }}>
+                <span style={{ fontSize: 56 }}>📭</span>
+                <p style={{ marginTop: 16, fontSize: 18, fontWeight: 600, color: "var(--text)" }}>No votes yet</p>
+                <p style={{ fontSize: 14, marginTop: 4 }}>This candidate has not received any votes.</p>
               </div>
             ) : (
               <>
-                <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
-                  Total: {candidateVoters.length} voter{candidateVoters.length !== 1 ? "s" : ""}
-                </p>
-                <div style={{ overflowX: "auto", maxHeight: 400, overflowY: "auto" }}>
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Membership No</th>
-                        <th>Category</th>
-                        <th>Voted At</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {candidateVoters.map((v: any, idx: number) => (
-                        <tr key={v.voterId}>
-                          <td style={{ color: "var(--muted)", fontSize: 12 }}>{idx + 1}</td>
-                          <td><strong>{v.firstName} {v.lastName}</strong></td>
-                          <td style={{ fontSize: 13, color: "var(--muted)" }}>{v.email}</td>
-                          <td style={{ fontSize: 13 }}>{v.membershipCode || "—"}</td>
-                          <td style={{ fontSize: 13 }}>{v.membershipCategory || "—"}</td>
-                          <td style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                            {v.votedAt ? new Date(v.votedAt).toLocaleDateString("en-GB", {
-                              day: "numeric", month: "short", year: "numeric",
-                              hour: "2-digit", minute: "2-digit",
-                            }) : "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                {/* Summary bar */}
+                <div style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  marginBottom: 14, padding: "0 4px",
+                }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>
+                    🗳 {candidateVoters.length} voter{candidateVoters.length !== 1 ? "s" : ""}
+                  </span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      className="btn btn-outline btn-xs"
+                      onClick={() => {
+                        const csv = [["#","Name","Email","Membership No","Category","Voted At"],
+                          ...candidateVoters.map((v: any, idx: number) => [
+                            idx + 1,
+                            `${v.firstName} ${v.lastName}`,
+                            v.email,
+                            v.membershipCode || "",
+                            v.membershipCategory || "",
+                            v.votedAt ? new Date(v.votedAt).toLocaleString("en-GB") : "",
+                          ])]
+                          .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+                        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `voters-${showVotersFor.candidateName.replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`;
+                        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                      }}
+                    >
+                      📥 Export CSV
+                    </button>
+                    <button className="btn btn-ghost btn-xs" onClick={() => { setShowVotersFor(null); setCandidateVoters([]); }}>Close</button>
+                  </div>
                 </div>
-                <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-                  <button
-                    className="btn btn-outline btn-sm"
-                    onClick={() => {
-                      const csv = [["#","Name","Email","Membership No","Category","Voted At"],
-                        ...candidateVoters.map((v: any, idx: number) => [
-                          idx + 1,
-                          `${v.firstName} ${v.lastName}`,
-                          v.email,
-                          v.membershipCode || "",
-                          v.membershipCategory || "",
-                          v.votedAt ? new Date(v.votedAt).toLocaleString("en-GB") : "",
-                        ])]
-                        .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-                      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `voters-${showVotersFor.candidateName.replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`;
-                      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                    }}
-                  >
-                    Export CSV
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => { setShowVotersFor(null); setCandidateVoters([]); }}>Close</button>
+
+                {/* Voters Table */}
+                <div style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-md)",
+                  overflow: "hidden",
+                }}>
+                  <div style={{ overflowX: "auto", maxHeight: 420, overflowY: "auto" }}>
+                    <table className="data-table" style={{ border: "none", margin: 0 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ width: 44, textAlign: "center" }}>#</th>
+                          <th>Name</th>
+                          <th style={{ minWidth: 200 }}>Email</th>
+                          <th>Membership No</th>
+                          <th>Category</th>
+                          <th style={{ whiteSpace: "nowrap" }}>Voted At</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {candidateVoters.map((v: any, idx: number) => (
+                          <tr key={v.voterId} style={{ transition: "background 0.15s" }}>
+                            <td style={{ textAlign: "center", color: "var(--muted)", fontSize: 12, fontWeight: 500 }}>{idx + 1}</td>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <span style={{
+                                  width: 32, height: 32, borderRadius: "50%",
+                                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                  background: "var(--green-light)", color: "var(--green-dark)",
+                                  fontSize: 13, fontWeight: 700, flexShrink: 0,
+                                }}>
+                                  {v.firstName?.[0]}{v.lastName?.[0]}
+                                </span>
+                                <div>
+                                  <strong style={{ fontSize: 14 }}>{v.firstName} {v.lastName}</strong>
+                                </div>
+                              </div>
+                            </td>
+                            <td style={{ fontSize: 13, color: "var(--muted)" }}>{v.email}</td>
+                            <td style={{ fontSize: 13, fontWeight: 500 }}>{v.membershipCode || "—"}</td>
+                            <td>
+                              <span style={{
+                                display: "inline-block",
+                                padding: "2px 10px",
+                                borderRadius: "var(--radius-full)",
+                                fontSize: 12,
+                                fontWeight: 500,
+                                background: "var(--bg)",
+                                color: "var(--text)",
+                                border: "1px solid var(--border)",
+                                whiteSpace: "nowrap",
+                              }}>
+                                {v.membershipCategory || "—"}
+                              </span>
+                            </td>
+                            <td style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                              {v.votedAt ? (
+                                <span title={new Date(v.votedAt).toLocaleString("en-GB")}>
+                                  {new Date(v.votedAt).toLocaleDateString("en-GB", {
+                                    day: "numeric", month: "short", year: "numeric",
+                                    hour: "2-digit", minute: "2-digit",
+                                  })}
+                                </span>
+                              ) : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </>
             )}
