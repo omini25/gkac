@@ -2102,6 +2102,32 @@ function ResultsView({ results, onClose, setLightbox }: { results: ElectionResul
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [photoToast, setPhotoToast] = useState("");
 
+  // ─── Voters modal state ─────────────────────────────────────────────
+  const [showVotersFor, setShowVotersFor] = useState<{
+    candidateId: string;
+    candidateName: string;
+    positionTitle: string;
+  } | null>(null);
+  const [candidateVoters, setCandidateVoters] = useState<any[]>([]);
+  const [candidateVotersLoading, setCandidateVotersLoading] = useState(false);
+
+  async function openCandidateVoters(candidateId: string, candidateName: string, positionTitle: string) {
+    setShowVotersFor({ candidateId, candidateName, positionTitle });
+    setCandidateVotersLoading(true);
+    try {
+      const res = await api.getCandidateVoters(results.election.id, candidateId);
+      if (res.data) {
+        setCandidateVoters(res.data.voters);
+      } else {
+        setPhotoToast(res.error || "Failed to load voters");
+        setTimeout(() => setPhotoToast(""), 3000);
+      }
+    } catch {
+      setCandidateVoters([]);
+    }
+    setCandidateVotersLoading(false);
+  }
+
   async function handleCandidatePhotoUpload(candidateId: string, file: File) {
     const sizeErr = validateFileSize(file, "candidatePhoto");
     if (sizeErr) { setPhotoToast(sizeErr); setTimeout(() => setPhotoToast(""), 3000); return; }
@@ -2379,7 +2405,14 @@ function ResultsView({ results, onClose, setLightbox }: { results: ElectionResul
                       <div className="progress-bar">
                         <div className="fill" style={{ width: `${c.percentage}%` }} />
                       </div>
-                      <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <button
+                          className="btn btn-outline btn-xs"
+                          style={{ fontSize: 11 }}
+                          onClick={() => openCandidateVoters(c.id, `${c.firstName} ${c.lastName}`, pos.title)}
+                        >
+                          👥 View Voters ({c.voteCount})
+                        </button>
                         <label style={{ fontSize: 12, color: "var(--accent)", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
                           {uploadingFor === c.id ? (
                             <span style={{ color: "var(--muted)" }}>⏳ Uploading…</span>
@@ -2430,6 +2463,93 @@ function ResultsView({ results, onClose, setLightbox }: { results: ElectionResul
           boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 9999,
         }}>
           {photoToast}
+        </div>
+      )}
+
+      {/* ═══ VOTERS MODAL ═══ */}
+      {showVotersFor && (
+        <div className="modal-overlay open" onClick={() => { setShowVotersFor(null); setCandidateVoters([]); }}>
+          <div className="modal" style={{ maxWidth: 650, maxHeight: "80vh" }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => { setShowVotersFor(null); setCandidateVoters([]); }}>✕</button>
+            <h3 style={{ marginBottom: 4 }}>👥 Voters</h3>
+            <p style={{ fontSize: 14, color: "var(--muted)", marginBottom: 16 }}>
+              <strong>{showVotersFor.candidateName}</strong> — {showVotersFor.positionTitle}
+            </p>
+
+            {candidateVotersLoading ? (
+              <p style={{ textAlign: "center", color: "var(--muted)", padding: 20 }}><span className="loader-dot" /></p>
+            ) : candidateVoters.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 40, color: "var(--muted)" }}>
+                <span style={{ fontSize: 48 }}>📭</span>
+                <p style={{ marginTop: 12, fontWeight: 600 }}>No votes yet</p>
+                <p style={{ fontSize: 13 }}>This candidate has not received any votes.</p>
+              </div>
+            ) : (
+              <>
+                <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                  Total: {candidateVoters.length} voter{candidateVoters.length !== 1 ? "s" : ""}
+                </p>
+                <div style={{ overflowX: "auto", maxHeight: 400, overflowY: "auto" }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Membership No</th>
+                        <th>Category</th>
+                        <th>Voted At</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {candidateVoters.map((v: any, idx: number) => (
+                        <tr key={v.voterId}>
+                          <td style={{ color: "var(--muted)", fontSize: 12 }}>{idx + 1}</td>
+                          <td><strong>{v.firstName} {v.lastName}</strong></td>
+                          <td style={{ fontSize: 13, color: "var(--muted)" }}>{v.email}</td>
+                          <td style={{ fontSize: 13 }}>{v.membershipCode || "—"}</td>
+                          <td style={{ fontSize: 13 }}>{v.membershipCategory || "—"}</td>
+                          <td style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                            {v.votedAt ? new Date(v.votedAt).toLocaleDateString("en-GB", {
+                              day: "numeric", month: "short", year: "numeric",
+                              hour: "2-digit", minute: "2-digit",
+                            }) : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={() => {
+                      const csv = [["#","Name","Email","Membership No","Category","Voted At"],
+                        ...candidateVoters.map((v: any, idx: number) => [
+                          idx + 1,
+                          `${v.firstName} ${v.lastName}`,
+                          v.email,
+                          v.membershipCode || "",
+                          v.membershipCategory || "",
+                          v.votedAt ? new Date(v.votedAt).toLocaleString("en-GB") : "",
+                        ])]
+                        .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+                      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `voters-${showVotersFor.candidateName.replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`;
+                      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    Export CSV
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => { setShowVotersFor(null); setCandidateVoters([]); }}>Close</button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>

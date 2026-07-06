@@ -760,6 +760,12 @@ export const api = {
   getEligibleVoters: (electionId: string) =>
     request<{ voters: any[] }>(`/elections/${electionId}/eligible-voters`),
 
+  // Candidate voters (admin) — get users who voted for a specific candidate
+  getCandidateVoters: (electionId: string, candidateId: string) =>
+    request<{ candidate: { id: string; userId: string; firstName: string; lastName: string }; voters: { voterId: string; firstName: string; lastName: string; email: string; membershipCode: string; membershipCategory: string; votedAt: string }[]; total: number }>(
+      `/elections/${electionId}/candidates/${candidateId}/voters`
+    ),
+
   // ─── Voter Exceptions (admin) ────────────────────────────────────────────
   getVoterExceptions: (electionId: string) =>
     request<{ exceptions: any[] }>(`/elections/${electionId}/voter-exceptions`),

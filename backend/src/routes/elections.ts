@@ -1556,6 +1556,67 @@ electionsRouter.get("/elections/:id/results", async (_req: Request, res: Respons
   }
 });
 
+// ─── GET /api/elections/:id/candidates/:candidateId/voters (admin) ──────
+// Returns the list of voters who voted for a specific candidate
+electionsRouter.get("/elections/:id/candidates/:candidateId/voters", async (req: Request, res: Response) => {
+  const auth = authenticate(req, res);
+  if (!auth) return;
+  if (!(await requireAdmin(auth, res))) return;
+
+  try {
+    const db = getDbPool();
+    const { id, candidateId } = req.params;
+
+    // Verify candidate exists and belongs to this election
+    const candidateResult = await db.query(
+      `SELECT c.id, c.user_id, c.position_id, u.first_name, u.last_name
+       FROM election_candidates c
+       JOIN users u ON c.user_id = u.id
+       WHERE c.id = $1 AND c.election_id = $2`,
+      [candidateId, id]
+    );
+    if (candidateResult.rows.length === 0) {
+      return res.status(404).json({ error: "Candidate not found." });
+    }
+
+    // Get voters who voted for this candidate
+    const votersResult = await db.query(
+      `SELECT ev.voter_id, ev.voted_at,
+              u.first_name, u.last_name, u.email, u.membership_code,
+              u.membership_category_name
+       FROM election_votes ev
+       JOIN users u ON ev.voter_id = u.id
+       WHERE ev.candidate_id = $1 AND ev.election_id = $2
+       ORDER BY u.last_name, u.first_name`,
+      [candidateId, id]
+    );
+
+    const voters = votersResult.rows.map((v: any) => ({
+      voterId: v.voter_id,
+      firstName: v.first_name,
+      lastName: v.last_name,
+      email: v.email,
+      membershipCode: v.membership_code,
+      membershipCategory: v.membership_category_name,
+      votedAt: v.voted_at,
+    }));
+
+    return res.json({
+      candidate: {
+        id: candidateResult.rows[0].id,
+        userId: candidateResult.rows[0].user_id,
+        firstName: candidateResult.rows[0].first_name,
+        lastName: candidateResult.rows[0].last_name,
+      },
+      voters,
+      total: voters.length,
+    });
+  } catch (err) {
+    console.error("Error fetching candidate voters:", err);
+    return res.status(500).json({ error: "Failed to fetch candidate voters." });
+  }
+});
+
 // ============================================================================
 // ELECTION POSTERS (admin-uploaded campaign posters)
 // ============================================================================
