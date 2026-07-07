@@ -371,6 +371,7 @@ export default function AdminMembersPage() {
       lastName: m.lastName,
       email: m.email,
       phone: m.phone,
+      mno: m.mno !== "—" ? m.mno : "",
       nin: m.nin || "",
       altIdType: m.altIdType || "",
       altIdNum: m.altIdNum || "",
@@ -387,6 +388,7 @@ export default function AdminMembersPage() {
       email: editForm.email,
       phone: editForm.phone,
       membershipCategoryName: "Member",
+      membershipCode: editForm.mno || null,
       nin: editForm.nin || null,
       altIdType: editForm.altIdType || null,
       altIdNum: editForm.altIdNum || null,
@@ -919,13 +921,12 @@ export default function AdminMembersPage() {
               </div>
               <div className="form-group">
                 <label>Membership No</label>
-                <div style={{
-                  padding: "11px 14px", border: "1px solid var(--border-strong)",
-                  borderRadius: "var(--radius-md)", fontSize: 14,
-                  background: "var(--bg)", color: "var(--muted)",
-                }}>
-                  {editTarget?.mno !== "—" ? editTarget?.mno : "Auto-generated on approval"}
-                </div>
+                <input
+                  type="text"
+                  value={editForm.mno || ""}
+                  onChange={(e) => setEditForm({ ...editForm, mno: e.target.value })}
+                  placeholder="e.g. MEM-2025-00100"
+                />
               </div>
             </div>
             <hr style={{ borderColor: "var(--border)", margin: "14px 0" }} />

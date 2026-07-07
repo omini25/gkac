@@ -243,7 +243,7 @@ adminMembersRouter.put("/admin/members/:id", async (req: Request, res: Response)
       firstName, lastName, email, phone, dateOfBirth, gender,
       stateOfOrigin, lga, residentialAddress,
       membershipCategoryId, membershipCategoryName,
-      membershipExpiresAt,
+      membershipExpiresAt, membershipCode,
       nin, altIdType, altIdNum,
     } = req.body;
 
@@ -267,10 +267,11 @@ adminMembersRouter.put("/admin/members/:id", async (req: Request, res: Response)
         membership_category_id = COALESCE($10, membership_category_id),
         membership_category_name = COALESCE($11, membership_category_name),
         membership_expires_at = COALESCE($12, membership_expires_at),
-        nin = COALESCE($13, nin),
-        alt_id_type = COALESCE($14, alt_id_type),
-        alt_id_num = COALESCE($15, alt_id_num)
-       WHERE id = $16
+        membership_code = COALESCE($13, membership_code),
+        nin = COALESCE($14, nin),
+        alt_id_type = COALESCE($15, alt_id_type),
+        alt_id_num = COALESCE($16, alt_id_num)
+       WHERE id = $17
        RETURNING id, first_name, last_name, email, phone,
          membership_category_name, membership_code, application_status,
          is_suspended, membership_expires_at,
@@ -281,6 +282,7 @@ adminMembersRouter.put("/admin/members/:id", async (req: Request, res: Response)
         lga || null, residentialAddress || null,
         membershipCategoryId || null, membershipCategoryName || null,
         membershipExpiresAt || null,
+        membershipCode || null,
         nin || null, altIdType || null, altIdNum || null,
         id,
       ]
