@@ -12,20 +12,35 @@ const JWT_SECRET = process.env.JWT_SECRET || "gkac-dev-secret-change-in-producti
 const SALT_ROUNDS = 12;
 
 /**
- * Generate a unique membership code: MEM-<year>-<5-digit-padded-sequence>
- * Retries up to 3 times if a collision occurs.
+ * Generate a unique membership code: GKAC/<year-code>/<sequential-3-digit>
+ * Finds the last created membership number for the current year and increments by 1.
+ * Format: GKAC/026/001, GKAC/026/002, etc.
  */
-async function generateMembershipCode(db: any): Promise<string> {
+export async function generateMembershipCode(db: any): Promise<string> {
   const year = new Date().getFullYear();
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const random = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
-    const code = `MEM-${year}-${random}`;
-    const exists = await db.query("SELECT id FROM users WHERE membership_code = $1", [code]);
-    if (exists.rows.length === 0) return code;
+  const yearCode = String(year).slice(-3); // "026" for 2026
+
+  // Find the highest existing sequence number for this year
+  const result = await db.query(
+    `SELECT membership_code FROM users
+     WHERE membership_code LIKE $1
+     ORDER BY membership_code DESC
+     LIMIT 1`,
+    [`GKAC/${yearCode}/%`]
+  );
+
+  let nextSeq = 1;
+  if (result.rows.length > 0) {
+    const lastCode = result.rows[0].membership_code;
+    const parts = lastCode.split('/');
+    const lastSeq = parseInt(parts[2], 10);
+    if (!isNaN(lastSeq)) {
+      nextSeq = lastSeq + 1;
+    }
   }
-  // Fallback: use a timestamp-based suffix to guarantee uniqueness
-  const ts = Date.now().toString(36).toUpperCase();
-  return `MEM-${year}-${ts}`;
+
+  const seq = String(nextSeq).padStart(3, "0");
+  return `GKAC/${yearCode}/${seq}`;
 }
 
 // ─── GET /api/auth/categories ─────────────────────────────────────────────

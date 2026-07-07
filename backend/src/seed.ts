@@ -65,7 +65,7 @@ async function seed() {
       state: "Lagos", lga: "Ikeja", address: "42 Bourdillon Road, Ikoyi, Lagos",
       nin: "12345678901", category: "Member",
       status: "approved", verified: true,
-      membershipCode: "MEM-2025-00001",
+      membershipCode: "GKAC/025/001",
       expiresAt: elevenMonthsFromNow,
       referral: "Dr. Emeka Nwosu",
       isAdmin: false,
@@ -78,7 +78,7 @@ async function seed() {
       address: "15 Danube Street, Maitama, Abuja",
       nin: "23456789012", category: "Fellow",
       status: "approved", verified: true,
-      membershipCode: "MEM-2025-00002",
+      membershipCode: "GKAC/025/002",
       expiresAt: elevenMonthsFromNow,
       referral: "",
       isAdmin: false,
@@ -90,7 +90,7 @@ async function seed() {
       state: "Anambra", lga: "Awka", address: "8 Zik Avenue, Awka",
       nin: "34567890123", category: "Associate",
       status: "pending_approval", verified: true,
-      membershipCode: "MEM-2025-00003",
+      membershipCode: "GKAC/025/003",
       expiresAt: elevenMonthsFromNow,
       referral: "Adebayo Ogunlesi",
       isAdmin: false,
@@ -129,7 +129,7 @@ async function seed() {
       nin: "", altIDType: "Voter's Card", altIDNum: "VCR-87654321",
       category: "Student",
       status: "approved", verified: true,
-      membershipCode: "MEM-2025-00004",
+      membershipCode: "GKAC/025/004",
       expiresAt: elevenMonthsFromNow,
       referral: "Fatima Sani-Idris",
       isAdmin: false,
@@ -141,7 +141,7 @@ async function seed() {
       state: "Lagos", lga: "Ikeja", address: "1 GKAC House, Secretariat, Ikeja, Lagos",
       nin: "99999999999", category: "Fellow",
       status: "approved", verified: true,
-      membershipCode: "ADM-2025-00001",
+      membershipCode: "GKAC/025/005",
       expiresAt: new Date(now.getTime() + 5 * 365 * 24 * 60 * 60 * 1000), // 5 years
       referral: "",
       isAdmin: true,
@@ -154,7 +154,7 @@ async function seed() {
       address: "10 Quarry Road, Abeokuta",
       nin: "67890123456", category: "Associate",
       status: "approved", verified: true,
-      membershipCode: "MEM-2024-00005",
+      membershipCode: "GKAC/024/001",
       expiresAt: twoMonthsAgo, // Expired 2 months ago
       referral: "",
       isAdmin: false,
@@ -205,7 +205,7 @@ async function seed() {
     if (u.status !== "pending_payment") {
       const paidDate = u.status === "rejected"
         ? threeMonthsAgo
-        : u.status === "approved" && u.membershipCode?.startsWith("MEM-2024")
+        : u.status === "approved" && u.membershipCode?.startsWith("GKAC/024/")
           ? twoMonthsAgo  // expired member
           : oneMonthAgo;
 

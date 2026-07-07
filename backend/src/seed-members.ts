@@ -96,9 +96,9 @@ async function seedMembers() {
     }
 
     // Generate membership code
-    const year = new Date().getFullYear();
-    const random = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
-    const membershipCode = `MEM-${year}-${random}`;
+    const yearCode = String(new Date().getFullYear()).slice(-3);
+    const seq = String(created + 1).padStart(3, "0");
+    const membershipCode = `GKAC/${yearCode}/${seq}`;
 
     // Set expiry: 12 months from now
     const expiresAt = new Date();

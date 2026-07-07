@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import { getDbPool } from "../db";
 import { EmailTemplates, sendTemplatedEmail } from "../email";
 import { getUploadsDir } from "../uploads";
+import { generateMembershipCode } from "./auth";
 
 export const paymentsRouter = Router();
 
@@ -157,9 +158,7 @@ paymentsRouter.post("/payments/upload-proof", proofUpload.single("proof"), async
     }
 
     // For registration: generate membership code + move to pending_approval
-    const year = new Date().getFullYear();
-    const random = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
-    const membershipCode = `MEM-${year}-${random}`;
+    const membershipCode = await generateMembershipCode(db);
 
     // Calculate expiry: 12 months from now
     const expiresAt = new Date();

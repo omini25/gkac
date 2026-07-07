@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { getDbPool } from "../db";
 import { EmailTemplates, sendTemplatedEmail } from "../email";
 import { verifyNIN, PremblyError } from "../prembly";
+import { generateMembershipCode } from "./auth";
 
 export const adminMembersRouter = Router();
 
@@ -30,9 +31,7 @@ adminMembersRouter.post("/admin/members", async (req: Request, res: Response) =>
     const passwordHash = await bcrypt.hash(password, 12);
 
     // Generate a unique membership code
-    const year = new Date().getFullYear();
-    const random = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
-    const membershipCode = `MEM-${year}-${random}`;
+    const membershipCode = await generateMembershipCode(db);
 
     // Set membership expiry to 1 year from now
     const expiresAt = new Date();
@@ -335,11 +334,10 @@ adminMembersRouter.put("/admin/members/:id/approve", async (req: Request, res: R
     }
 
     // Generate membership code if not provided
-    const code = membershipCode || user.membership_code || (() => {
-      const year = new Date().getFullYear();
-      const random = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
-      return `MEM-${year}-${random}`;
-    })();
+    let code = membershipCode || user.membership_code;
+    if (!code) {
+      code = await generateMembershipCode(db);
+    }
 
     // Set membership expiry if not already set
     let expiresAt = null;

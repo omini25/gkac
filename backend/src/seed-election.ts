@@ -98,7 +98,9 @@ async function seedElection() {
       console.log(`  ✓ Found: ${c.firstName} ${c.lastName} → ${u.email} (${u.id})`);
     } else {
       // Create new user
-      const membershipCode = `MEM-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 100000)).padStart(5, "0")}`;
+      const yearCode = String(new Date().getFullYear()).slice(-3);
+      const seq = String(Object.keys(userIds).length + 1).padStart(3, "0");
+      const membershipCode = `GKAC/${yearCode}/${seq}`;
       const expiresAt = new Date();
       expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
